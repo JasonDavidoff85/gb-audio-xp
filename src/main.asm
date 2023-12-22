@@ -1,6 +1,4 @@
-
-INCLUDE "hardware.inc/hardware.inc"
-	rev_Check_hardware_inc 4.0
+INCLUDE "hardware.inc"
 
 SECTION "Header", ROM0[$100]
 
@@ -8,6 +6,7 @@ SECTION "Header", ROM0[$100]
 	; You have 4 bytes of code to do... something
 	di
 	jp EntryPoint
+	jp 
 
 	; Make sure to allocate some space for the header, so no important
 	; code gets put there and later overwritten by RGBFIX.
