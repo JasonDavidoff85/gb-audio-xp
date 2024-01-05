@@ -11,10 +11,10 @@ PADVALUE := 0xFF
 VERSION := 0
 
 # 4-ASCII letter game ID.
-GAMEID := BOIL
+GAMEID := MUSE
 
 # Game title, up to 11 ASCII chars.
-TITLE := BOILERPLATE
+TITLE := MUSE
 
 # New licensee, 2 ASCII chars.
 # Homebrew games FTW!.
@@ -36,7 +36,7 @@ MBC := 0x00
 SRAMSIZE := 0x00
 
 # ROM name.
-ROMNAME := boilerplate
+ROMNAME := muse
 ROMEXT  := gb
 
 
