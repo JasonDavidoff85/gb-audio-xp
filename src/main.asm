@@ -1,5 +1,11 @@
 INCLUDE "hardware.inc"
 
+; Number of bytes in the tileset for the game.
+DEF len_Tileset EQU 64
+
+; Number of bytes in the level's tilemap.
+DEF len_LevelTilemap EQU 1024
+
 ; ------------------------------------------------------------------------------
 ; `macro WaitForVblank()`
 ;
@@ -47,13 +53,19 @@ SECTION "Timer Handler", ROM0
 TimerHandler:
 	inc bc
 
-	; check if 2048
+	; check if 4096 (60 bpm)
 	bit 3, b
 
 	; skip reset if not 2048
 	jr z, .skipReset
 
 	call PlayNote
+
+	; get pallet and invert and reset
+	ld a, [rBGP]
+	cpl
+	ld [rBGP], a
+
 	
 	; reset b if equal
 	ld b, $0000
@@ -70,9 +82,11 @@ TimerHandler:
 SECTION "Main", ROM0
 
 Main:
-	; call ClearWRAM
-	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16
-  	ld [rLCDC], a
+	; turn off display
+	xor a, a
+	ld [rLCDC], a
+
+	call ClearWRAM
 
 	; Master audio on.
 	ld a, $80
@@ -103,13 +117,25 @@ Main:
 	ldh [rIF], a
 
 	; set b to 0 to use as bpm counter
-	ld bc, $0000
+	;ld bc, $0000
+
+	call LoadLevel
+
+	; Initialize the background palettes
+	ld a, %11100100
+	ld [rBGP], a
+
+	; turn on display
+	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
+  	ld [rLCDC], a
 
 	ei
 
-	call PlayNote
+	; call PlayNote
 
 Loop:
+	WaitForVblank
+	WaitForVblankEnd
 	jr Loop
 
 
@@ -153,4 +179,62 @@ ClearWRAM:
 	jr nz, .clear_loop
 	ret
 
+; ------------------------------------------------------------------------------
+; `func LoadLevel()`
+;
+; Copies level data from the ROM into RAM and initializes level variables.
+; ------------------------------------------------------------------------------
+LoadLevel:
+	ld bc, len_Tileset
+	ld de, Tileset
+	ld hl, $8000
+	call LoadData
+	ld bc, len_LevelTilemap
+	ld de, LevelTilemap
+	ld hl, $9800
+	call LoadData
+	ret
+
+; ------------------------------------------------------------------------------
+; `func LoadData(bc, de, hl)`
+;
+; This function loads data directly from the ROM into RAM using three 16-bit
+; registers:
+;
+; - `bc` - The number of bytes to load
+; - `de` - The start address for retrieving the bytes from the ROM
+; - `hl` - The start address for storing the bytes in RAM
+; ------------------------------------------------------------------------------
+LoadData:
+	ld a, [de]
+	ld [hli], a
+	inc de
+	dec bc
+	ld a, b
+	or a, c
+	jp nz, LoadData
+	ret
+
+SECTION "Game Data", ROM0
+
+; ------------------------------------------------------------------------------
+; `binary data Tileset`
+;
+; This is the tileset data for the game. Since it is just a demo, I was able to
+; fit all the graphics I need into the GameBoy's 6144 byte character RAM region.
+; Bigger games will need to swap out graphics during runtime based on what needs
+; to be rendered at a given time.
+; ------------------------------------------------------------------------------
+Tileset:: INCBIN "tiles.bin"
+
+; ------------------------------------------------------------------------------
+; `binary data LevelTilemap`
+;
+; This is the 32 x 32 tile data for the background tiles representing the game's
+; level. For this project I kept things simple by using the binary tilemap data
+; directly. In more advanced projects one would have much larger runs of data
+; representing levels and use an encoding scheme (e.g. run-length encoding) to
+; minimize ROM data usage.
+; ------------------------------------------------------------------------------
+LevelTilemap:: INCBIN "test1.bin"
 
