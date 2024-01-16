@@ -1,41 +1,18 @@
 INCLUDE "hardware.inc"
-
-; Number of bytes in the tileset for the game.
-DEF len_Tileset EQU 64
-
-; Number of bytes in the level's tilemap.
-DEF len_LevelTilemap EQU 1024
-
-; ------------------------------------------------------------------------------
-; `macro WaitForVblank()`
-;
-; Loops until the LCD enters the vertical blanking period.
-; ------------------------------------------------------------------------------
-MACRO WaitForVblank
-: ld a, [rLY]
-  cp a, 144
-  jr c, :-
-ENDM
-
-; ------------------------------------------------------------------------------
-; `macro WaitForVblankEnd()`
-;
-; Loops until the LCD exits the vertical blanking period.
-; ------------------------------------------------------------------------------
-MACRO WaitForVblankEnd
-: ld a, [rLY]
-  cp 144
-  jr nc, :-
-ENDM
+INCLUDE "definitions.inc"
 
 SECTION "Timer Interrupt", ROM0[$0050]
 TimerInterrupt:
-	; push af
-	; push bc
-	; push de
-	; push hl
 	jp TimerHandler
-	
+
+SECTION "VBlank Interrupt", ROM0[$0040]
+VBlankInterupt:
+	jp VBlankHandler
+
+
+SECTION "BPM Counter", HRAM
+hBPMCounter:
+	ds 1
 
 SECTION "Header", ROM0[$100]
 
@@ -51,13 +28,51 @@ SECTION "Header", ROM0[$100]
 
 SECTION "Timer Handler", ROM0
 TimerHandler:
+	; load pointer in hl
+	ld hl, hBPMCounter
+	; set bc to pointer
+	ld b, [hl]
+	inc [hl]
+	ld c, [hl]
+
+	; increment pointer
 	inc bc
 
-	; check if 4096 (60 bpm)
+	
+	; check if 4096 (120 bpm)
 	bit 3, b
 
-	; skip reset if not 2048
+	; skip reset if not desired bpm
 	jr z, .skipReset
+
+	call PlayNote
+
+	; set counter back to 0
+	xor a, a
+	ldh [hBPMCounter], a
+
+	; ; get pallet and invert and reset
+	; ld a, [rBGP]
+	; cpl
+	; ld [rBGP], a
+
+.skipReset
+
+	; This instruction is equivalent to `ret` and `ei`
+	reti
+
+SECTION "VBlank Handler", ROM0
+VBlankHandler:
+
+	; load counter and increment
+	ldh a, [hBPMCounter]
+	inc a
+	
+	; check bit (bpm)
+	bit 5, a
+
+	; if at bpm play note and change pallet
+	jr z, .skipCpl
 
 	call PlayNote
 
@@ -66,72 +81,18 @@ TimerHandler:
 	cpl
 	ld [rBGP], a
 
+	; prepare to reset counter
+	xor a, a
+
+.skipCpl
+	; load counter
+	ldh [hBPMCounter], a
 	
-	; reset b if equal
-	ld b, $0000
-
-.skipReset
-	; pop hl
-	; pop de
-	; pop bc
-	; pop af
-
-	; This instruction is equivalent to `ret` and `ei`
 	reti
 
 SECTION "Main", ROM0
-
 Main:
-	; turn off display
-	xor a, a
-	ld [rLCDC], a
-
-	call ClearWRAM
-
-	; Master audio on.
-	ld a, $80
-	ld [rNR52], a 
-
-	; Left and right channel max vol.
-	ld a, $77
-	ld [rNR50], a
-
-	; Enable all channels on each pan.
-	ld a, $FF
-	ld [rNR51], a
-
-	; Timer clock speed
-	ld a, $FF
-	ld [rTMA], a
-
-	; Set Timer Control to 496Hz
-	ld a, $04
-	ld [rTAC], a
-
-	; Interupt enable
-	ld a, IEF_TIMER
-	ld [rIE], a
-
-	; Clear iterupt flags
-	xor a, a ; This is equivalent to `ld a, 0`!
-	ldh [rIF], a
-
-	; set b to 0 to use as bpm counter
-	;ld bc, $0000
-
-	call LoadLevel
-
-	; Initialize the background palettes
-	ld a, %11100100
-	ld [rBGP], a
-
-	; turn on display
-	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
-  	ld [rLCDC], a
-
-	ei
-
-	; call PlayNote
+	call Setup
 
 Loop:
 	WaitForVblank
@@ -166,6 +127,56 @@ PlayNote:
 	ld [rNR24], a
 
 	ret
+
+Setup:
+	; turn off display
+	xor a, a
+	ld [rLCDC], a
+
+	call ClearWRAM
+
+	; Master audio on.
+	ld a, $80
+	ld [rNR52], a 
+
+	; Left and right channel max vol.
+	ld a, $77
+	ld [rNR50], a
+
+	; Enable all channels on each pan.
+	ld a, $FF
+	ld [rNR51], a
+
+	; Timer clock speed
+	ld a, $FF
+	ld [rTMA], a
+
+	; Set Timer Control to 496Hz
+	ld a, $04
+	ld [rTAC], a
+
+	; Interupt timer and vblank enable
+	ld a, IEF_VBLANK ;IEF_TIMER 
+	ldh [rIE], a
+
+	; Clear iterupt flags
+	xor a, a ; This is equivalent to `ld a, 0`!
+	ldh [rIF], a
+
+	; set b to 0 to use as bpm counter
+	;ld bc, $0000
+
+	call LoadLevel
+
+	; Initialize the background palettes
+	ld a, %11100100
+	ld [rBGP], a
+
+	; turn on display
+	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
+  	ld [rLCDC], a
+
+	reti	
 
 ClearWRAM:
 	ld bc, $2000
