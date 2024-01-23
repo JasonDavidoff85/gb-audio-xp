@@ -28,35 +28,30 @@ SECTION "Header", ROM0[$100]
 
 SECTION "Timer Handler", ROM0
 TimerHandler:
-	; load pointer in hl
-	ld hl, hBPMCounter
-	; set bc to pointer
-	ld b, [hl]
-	inc [hl]
-	ld c, [hl]
+	; load counter and increment
+	ldh a, [hBPMCounter]
+	inc a
+	; check bit (bpm)
+	bit 7, a
 
-	; increment pointer
-	inc bc
-
-	
-	; check if 4096 (120 bpm)
-	bit 3, b
-
-	; skip reset if not desired bpm
+	; if at bpm play note and change pallet
 	jr z, .skipReset
 
-	call PlayNote
+	; call PlayCH1
+	; call PlayCH2
+	call PlayCH1
 
-	; set counter back to 0
-	xor a, a
-	ldh [hBPMCounter], a
-
-	; ; get pallet and invert and reset
+	; get pallet and invert and reset
 	; ld a, [rBGP]
 	; cpl
 	; ld [rBGP], a
 
+	; prepare to reset counter
+	xor a, a
+
 .skipReset
+	; load counter
+	ldh [hBPMCounter], a
 
 	; This instruction is equivalent to `ret` and `ei`
 	reti
@@ -66,7 +61,6 @@ VBlankHandler:
 
 	; load counter and increment
 	ldh a, [hBPMCounter]
-	inc a
 	
 	; check bit (bpm)
 	bit 5, a
@@ -74,19 +68,12 @@ VBlankHandler:
 	; if at bpm play note and change pallet
 	jr z, .skipCpl
 
-	call PlayNote
-
 	; get pallet and invert and reset
 	ld a, [rBGP]
 	cpl
 	ld [rBGP], a
 
-	; prepare to reset counter
-	xor a, a
-
 .skipCpl
-	; load counter
-	ldh [hBPMCounter], a
 	
 	reti
 
@@ -100,31 +87,90 @@ Loop:
 	jr Loop
 
 
-PlayNote:
+SetupCh1:
 	; Channel 1 sweep.
 	; %00111100
-	ld a, $3C
+	ld a, %00111100 ; change the first 3 bytes as param?
 	ld [rNR10], a
 
 	; Set wave duty.
+	; %01000010 $80
+	ld a, %10000000 ; change wave size as param? or length timer?
+	ld [rNR11], a
+
+	; Set the vol envolope.
+	; %01110011
+	ld a, %01001000
+	ld [rNR12], a
+
+	; Freq lsb
+	; %110_ %11010110
+	ld a, %11010110
+	ld [rNR13], a
+
+	ret
+
+SetupCh2:
+	; Set wave duty.
 	; %01000010
-	ld a, $00
+	ld a, %10000000
 	ld [rNR21], a
 
 	; Set the vol envolope.
 	; %01110011
-	ld a, $73
+	ld a, %01000000
 	ld [rNR22], a
 
 	; Freq lsb
 	; %110_ %11010110
-	ld a, $D6
+	ld a, %11010110
 	ld [rNR23], a
 
+	ret
+
+SetupCh3:
+
+	; Set length timer to 0
+	ld a, %00000000
+	ld [rNR31], a
+
+	; Set the vol to 100%.
+	ld a, %00110000
+	ld [rNR32], a
+
+	; Freq lsb
+	; %110_ %11010110
+	ld a, %11010110
+	ld [rNR33], a
+
+	; Trigger freq msb
+	; %110_ %11010110
+	ld a, %10000110
+	ld [rNR34], a
+
+	ret
+
+PlayCH1:
 	; Freq msb and trigger
 	; %10000110
-	ld a, $86 ;C3
+	ld a, %10000001 ;C3
+	ld [rNR14], a
+
+	ret
+
+PlayCH2:
+	; Freq msb and trigger
+	; %10000110
+	ld a, %10000110 ;C3
 	ld [rNR24], a
+
+	ret
+
+PlayCH3:
+	; Trigger freq msb
+	; %110_ %11010110
+	ld a, %10000110
+	ld [rNR34], a
 
 	ret
 
@@ -156,7 +202,7 @@ Setup:
 	ld [rTAC], a
 
 	; Interupt timer and vblank enable
-	ld a, IEF_VBLANK ;IEF_TIMER 
+	ld a, IEF_TIMER | IEF_VBLANK
 	ldh [rIE], a
 
 	; Clear iterupt flags
@@ -167,6 +213,11 @@ Setup:
 	;ld bc, $0000
 
 	call LoadLevel
+
+	call SetupCh1
+	call SetupCh2
+	call SetupCh3
+
 
 	; Initialize the background palettes
 	ld a, %11100100
