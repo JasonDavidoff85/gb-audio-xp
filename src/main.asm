@@ -3,6 +3,9 @@ INCLUDE "definitions.inc"
 
 SECTION "Timer Interrupt", ROM0[$0050]
 TimerInterrupt:
+	push af
+	push bc
+	push hl
 	jp TimerHandler
 
 SECTION "VBlank Interrupt", ROM0[$0040]
@@ -13,6 +16,10 @@ VBlankInterupt:
 SECTION "BPM Counter", HRAM
 hBPMCounter:
 	ds 2
+
+SECTION "Variables", WRAM0[$C022]
+wVol:
+	ds 1
 
 SECTION "Header", ROM0[$100]
 
@@ -37,15 +44,23 @@ TimerHandler:
 
 	inc bc
 
-	bit 5, c
+	bit 4, b
 
 	; if at bpm play note and change pallet
 	jr z, .skipReset
 
-	; call PlayCH1
-	; call PlayCH2
-	; call PlayCH2
+	; check input
+	call ReadJoypad
+	ld a, [bJoypadDown]
+	and a, BUTTON_UP
+	jr z, .skipNote
 
+	ld a, [rNR10]
+	inc a
+	ld [rNR10], a
+	; call PlayCH2
+	; call PlayCH2
+.skipNote
 
 	; prepare to reset counter
 	ld bc, 0
@@ -56,6 +71,9 @@ TimerHandler:
 	inc hl
 	ld [hl], c
 
+	pop hl
+	pop bc
+	pop af
 	; This instruction is equivalent to `ret` and `ei`
 	reti
 
@@ -83,6 +101,9 @@ VBlankHandler:
 SECTION "Main", ROM0
 Main:
 	call Setup
+
+	ld a, %00100000
+	ld [rP1], a
 
 	call PlayCH1
 	; call PlayCH2
@@ -233,7 +254,7 @@ Setup:
 	ld [rTAC], a
 
 	; Interupt timer and vblank enable
-	ld a, IEF_VBLANK | IEF_TIMER
+	ld a, IEF_TIMER ;| IEF_VBLANK 
 	ldh [rIE], a
 
 	; Clear iterupt flags
@@ -265,7 +286,7 @@ ClearWRAM:
 	ld bc, $2000
 	ld hl, $C000
   .clear_loop
-	ld a, 0
+	xor a, a
 	ld [hli], a
 	dec bc
 	ld a, b
