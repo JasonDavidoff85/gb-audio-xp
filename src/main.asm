@@ -340,7 +340,7 @@ SECTION "Game Data", ROM0
 ; Bigger games will need to swap out graphics during runtime based on what needs
 ; to be rendered at a given time.
 ; ------------------------------------------------------------------------------
-Tileset:: INCBIN "tiles.bin"
+Tileset:: INCBIN "bin/tiles.bin"
 
 ; ------------------------------------------------------------------------------
 ; `binary data LevelTilemap`
@@ -351,5 +351,5 @@ Tileset:: INCBIN "tiles.bin"
 ; representing levels and use an encoding scheme (e.g. run-length encoding) to
 ; minimize ROM data usage.
 ; ------------------------------------------------------------------------------
-LevelTilemap:: INCBIN "test1.bin"
+LevelTilemap:: INCBIN "bin/test1.bin"
 
