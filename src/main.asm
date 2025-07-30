@@ -20,6 +20,8 @@ hBPMCounter:
 SECTION "Variables", WRAM0[$C022]
 wVol:
 	ds 1
+wChannelVolumes:    ds 4    ; Current volume for each channel
+wCurrentChannel::    ds 1    ; Currently active/selected channel (0-3)
 
 SECTION "Header", ROM0[$100]
 
@@ -53,18 +55,51 @@ TimerHandler:
 	call ReadJoypad
 	ld a, [bJoypadDown]
 	and a, BUTTON_UP
-	jr z, .skipNote
+	jr z, .checkDown
 
-	ld a, [rNR10]
+	call IncChannelVol
+.checkDown
+	ld a, [bJoypadDown]
+	and a, BUTTON_DOWN
+	jr z, .checkRight
+
+	call DecChannelVol
+
+.checkRight
+	; Check if SELECT + RIGHT is held
+	ld a, [bJoypadDown]
+	and a, BUTTON_SELECT | BUTTON_RIGHT
+	cp BUTTON_SELECT | BUTTON_RIGHT
+	jr nz, .checkLeft
+	
+	; Cycle to next channel
+	ld a, [wCurrentChannel]
 	inc a
-	ld [rNR10], a
-	; call PlayCH2
-	; call PlayCH2
-.skipNote
+	cp 4                    ; check if past last channel
+	jr nz, .setChannel
+	ld a, 0                 ; wrap around to channel 0
+.setChannel:
+	ld [wCurrentChannel], a
 
-	; prepare to reset counter
+.checkLeft
+	; Check if SELECT + LEFT is held
+	ld a, [bJoypadDown]
+	and a, BUTTON_SELECT | BUTTON_LEFT
+	cp BUTTON_SELECT | BUTTON_LEFT
+	jr nz, .endCheck
+	
+	; Cycle to previous channel
+	ld a, [wCurrentChannel]
+	dec a
+	cp $FF                  ; check for underflow
+	jr nz, .setPrevChannel
+	ld a, 3                 ; wrap around to channel 3
+.setPrevChannel:
+	ld [wCurrentChannel], a
+.endCheck
+
+	; reset counter if at bpm
 	ld bc, 0
-
 .skipReset
 
 	ld [hl], b
@@ -94,7 +129,7 @@ VBlankHandler:
 	cpl
 	ld [rBGP], a
 
-.skipCpl
+	.skipCpl
 	
 	reti
 
@@ -106,122 +141,33 @@ Main:
 	ld [rP1], a
 
 	call PlayCH1
-	; call PlayCH2
-	; call PlayCH3
-	; call PlayCH4
+	call PlayCH2
+	call PlayCH3
+	call PlayCH4
+
 Loop:
 	jr Loop
 
 
-SetupCh1:
-	; Channel 1 sweep.
-	; %00111100
-	ld a, %00000111 ; turn on off as param?
-	ld [rNR10], a
-
-	; Set wave duty.
-	; %01000010 $80
-	ld a, %10000000 ; change wave size as param? or length timer?
-	ld [rNR11], a
-
-	; Set the vol envolope.
-	; %01110011
-	ld a, %11001000
-	ld [rNR12], a
-
-	; Freq lsb
-	; %110_ %11010110
-	ld a, %11010110
-	ld [rNR13], a
-
+; Get channel volume register address
+; Output: DE = register address for current channel
+GetChannelVolumeReg::
+	push bc
+	push hl
+	ld a, [wCurrentChannel] ; get current channel (0-3)
+	ld hl, ChannelVolumeRegs
+	ld b, 0
+	ld c, a
+	sla c                   ; multiply by 2 (each entry is 2 bytes)
+	add hl, bc              ; hl points to correct entry
+	ld a, [hli]             ; load low byte
+	ld e, a
+	ld a, [hl]              ; load high byte
+	ld d, a                 ; de now contains the register address
+	pop hl
+	pop bc
 	ret
 
-SetupCh2:
-	; Set wave duty.
-	; %01000010
-	ld a, %10000000
-	ld [rNR21], a
-
-	; Set the vol envolope.
-	; %01110011
-	ld a, %11000000
-	ld [rNR22], a
-
-	; Freq lsb
-	; %110_ %11010110
-	ld a, %11010110
-	ld [rNR23], a
-
-	ret
-
-SetupCh3:
-	; turn on dac
-	ld a, %10000000
-	ld [rNR30], a
-
-	; Set length timer to 0
-	ld a, %00000000
-	ld [rNR31], a
-
-	; Set the vol to 100%.
-	ld a, %00100000
-	ld [rNR32], a
-
-	; Freq lsb
-	; %110_ %11010110
-	ld a, %11010110
-	ld [rNR33], a
-
-	ret
-
-
-SetupCh4:
-
-	; Set length timer to 0
-	ld a, %00000000
-	ld [rNR41], a
-
-	; Set the vol to 100%.
-	ld a, %00100000
-	ld [rNR42], a
-
-	; Freq lsb
-	; %110_ %11010110
-	ld a, %01101001
-	ld [rNR43], a
-
-	ret
-
-PlayCH1:
-	; Freq msb and trigger
-	; %10000110
-	ld a, %10000001 ;C3
-	ld [rNR14], a
-
-	ret
-
-PlayCH2:
-	; Freq msb and trigger
-	; %10000110
-	ld a, %10000010 ;C3
-	ld [rNR24], a
-
-	ret
-
-PlayCH3:
-	; Trigger freq msb
-	; %110_ %11010110
-	ld a, %10000110
-	ld [rNR34], a
-
-	ret
-
-PlayCH4:
-	; Trigger
-	ld a, %10000000
-	ld [rNR44], a
-
-	ret
 
 Setup:
 	; turn off display
@@ -233,6 +179,10 @@ Setup:
 
 	call ClearWRAM
 
+	; Initialize channel variables
+	xor a, a
+	ld [wCurrentChannel], a  ; start with channel 0
+	
 	; Master audio on.
 	ld a, $80
 	ld [rNR52], a 
@@ -254,7 +204,7 @@ Setup:
 	ld [rTAC], a
 
 	; Interupt timer and vblank enable
-	ld a, IEF_TIMER ;| IEF_VBLANK 
+	ld a, IEF_TIMER | IEF_VBLANK 
 	ldh [rIE], a
 
 	; Clear iterupt flags
@@ -331,6 +281,13 @@ LoadData:
 	ret
 
 SECTION "Game Data", ROM0
+
+; Channel volume register addresses
+ChannelVolumeRegs:
+    dw rNR12    ; Channel 1
+    dw rNR22    ; Channel 2
+	dw rNR32    ; Channel 3 (special case)
+    dw rNR42    ; Channel 4 (Channel 3 uses different volume control)
 
 ; ------------------------------------------------------------------------------
 ; `binary data Tileset`

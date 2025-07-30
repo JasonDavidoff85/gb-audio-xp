@@ -51,3 +51,19 @@ I recommend the [BGB](https://bgb.bircd.org) emulator for developing ROMs on Win
 
 - [Variable-width font engine](https://github.com/ISSOtm/gb-vwf)
 - [Structs in RGBDS](https://github.com/ISSOtm/rgbds-structs)
+
+
+# Software details
+
+4 voices
+select plus right and left change which audio channel -- ~~milestone 1~~ **DONE**
+Dpad up and down control volume -- ~~milestore 2~~ **DONE**
+Dpad left and right control pitch -- milestore 3
+A and B button is special function -- milestone 4
+Different graphics to represent each channel and volume -- milestone 5
+graphical embelishments to represent special functions -- milestone 6
+
+BUGS/Improvements
+Increase BPM or get rid of bpm and rely on timer 
+channel 3 volume
+
