@@ -21,7 +21,11 @@ SECTION "Variables", WRAM0[$C022]
 wVol:
 	ds 1
 wChannelVolumes:    ds 4    ; Current volume for each channel
-wCurrentChannel::    ds 1    ; Currently active/selected channel (0-3)
+wCurrentChannel::   ds 1    ; Currently active/selected channel (0-3)
+wChannel1Freq::     ds 2    ; Channel 1 frequency (11 bits, stored in 2 bytes)
+wChannel2Freq::     ds 2    ; Channel 2 frequency (11 bits, stored in 2 bytes)
+wChannel3Freq::     ds 2    ; Channel 3 frequency (11 bits, stored in 2 bytes)
+wChannel4Freq::     ds 2    ; Channel 4 frequency (11 bits, stored in 2 bytes)
 
 SECTION "Header", ROM0[$100]
 
@@ -66,11 +70,25 @@ TimerHandler:
 	call DecChannelVol
 
 .checkRight
+	ld a, [bJoypadDown]
+	and a, BUTTON_RIGHT
+	jr z, .checkLeft
+
+	call IncChannelFreq11Bit
+
+.checkLeft
+	ld a, [bJoypadDown]
+	and a, BUTTON_LEFT
+	jr z, .checkRightAndSelect
+
+	call IncChannelFreq11Bit
+
+.checkRightAndSelect
 	; Check if SELECT + RIGHT is held
 	ld a, [bJoypadDown]
 	and a, BUTTON_SELECT | BUTTON_RIGHT
 	cp BUTTON_SELECT | BUTTON_RIGHT
-	jr nz, .checkLeft
+	jr nz, .checkLeftAndSelect
 	
 	; Cycle to next channel
 	ld a, [wCurrentChannel]
@@ -81,7 +99,7 @@ TimerHandler:
 .setChannel:
 	ld [wCurrentChannel], a
 
-.checkLeft
+.checkLeftAndSelect
 	; Check if SELECT + LEFT is held
 	ld a, [bJoypadDown]
 	and a, BUTTON_SELECT | BUTTON_LEFT
@@ -141,9 +159,9 @@ Main:
 	ld [rP1], a
 
 	call PlayCH1
-	call PlayCH2
-	call PlayCH3
-	call PlayCH4
+	; call PlayCH2
+	; call PlayCH3
+	; call PlayCH4
 
 Loop:
 	jr Loop
@@ -156,6 +174,57 @@ GetChannelVolumeReg::
 	push hl
 	ld a, [wCurrentChannel] ; get current channel (0-3)
 	ld hl, ChannelVolumeRegs
+	ld b, 0
+	ld c, a
+	sla c                   ; multiply by 2 (each entry is 2 bytes)
+	add hl, bc              ; hl points to correct entry
+	ld a, [hli]             ; load low byte
+	ld e, a
+	ld a, [hl]              ; load high byte
+	ld d, a                 ; de now contains the register address
+	pop hl
+	pop bc
+	ret
+
+; Get channel frequency variable address
+; Output: HL = address of current channel's frequency variable
+GetChannelFreqVar::
+	ld a, [wCurrentChannel] ; get current channel (0-3)
+	ld hl, wChannel1Freq
+	sla a                   ; multiply by 2 (each freq is 2 bytes)
+	add l
+	ld l, a
+	jr nc, .done
+	inc h
+.done
+	ret
+
+; Get channel trigger register address
+; Output: DE = register address for current channel
+GetChannelTriggerReg::
+	push bc
+	push hl
+	ld a, [wCurrentChannel] ; get current channel (0-3)
+	ld hl, ChannelTriggerRegs
+	ld b, 0
+	ld c, a
+	sla c                   ; multiply by 2 (each entry is 2 bytes)
+	add hl, bc              ; hl points to correct entry
+	ld a, [hli]             ; load low byte
+	ld e, a
+	ld a, [hl]              ; load high byte
+	ld d, a                 ; de now contains the register address
+	pop hl
+	pop bc
+	ret
+
+; Get channel period low register address
+; Output: DE = register address for current channel
+GetChannelPeriodLowReg::
+	push bc
+	push hl
+	ld a, [wCurrentChannel] ; get current channel (0-3)
+	ld hl, ChannelPeriodLowRegs
 	ld b, 0
 	ld c, a
 	sla c                   ; multiply by 2 (each entry is 2 bytes)
@@ -288,6 +357,20 @@ ChannelVolumeRegs:
     dw rNR22    ; Channel 2
 	dw rNR32    ; Channel 3 (special case)
     dw rNR42    ; Channel 4 (Channel 3 uses different volume control)
+
+; Channel period low register addresses
+ChannelPeriodLowRegs:
+    dw rNR13    ; Channel 1
+    dw rNR23    ; Channel 2
+	dw rNR33    ; Channel 3 (special case)
+    dw rNR43    ; Channel 4 
+
+; Channel trigger register addresses
+ChannelTriggerRegs:
+    dw rNR14    ; Channel 1
+    dw rNR24    ; Channel 2
+	dw rNR34    ; Channel 3 (special case)
+    dw rNR44    ; Channel 4
 
 ; ------------------------------------------------------------------------------
 ; `binary data Tileset`
