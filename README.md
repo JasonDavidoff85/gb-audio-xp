@@ -1,4 +1,4 @@
-# GB-Noise
+# GB-Noise 👾
 
 4 channel noise and visual synth for gameboy.
 
@@ -9,9 +9,8 @@ Writen in assembly for RGBDS
 4 voices
 - select plus right and left change which audio channel -- ~~milestone 1~~ **DONE**
 - Dpad up and down control volume -- ~~milestore 2~~ **DONE**
-- Dpad left and right control pitch -- milestore 3
+- Dpad left and right control pitch -- ~~milestore 3~~ **DONE**
 - A and B button is special function -- milestone 4
-- Select + Down mutes channel -- 
 - Different graphics to represent each channel and volume -- milestone 5
 - graphical embelishments to represent special functions -- milestone 6
 
@@ -20,28 +19,28 @@ Select + dpad Right-Left -> Change channel
 Select + down -> Mute current channel
 
 Channel 1
-D-Pad Up-Down -> Volume Control
-D-pad Right-Left -> Frequency
-A -> Change Sweep
-B -> 
+↕️ D-Pad Up-Down -> Volume Control
+↔️ D-pad Right-Left -> Frequency
+🅰️ A button -> Change Sweep
+🅱️ B button -> 
 
 Channel 2
-D-Pad Up-Down -> Volume Control
-D-pad Right-Left -> Frequency
-A -> Change Sweep
-B -> 
+↕️ D-Pad Up-Down -> Volume Control
+↔️ D-pad Right-Left -> Frequency
+🅰️ A button -> Change Sweep
+🅱️ B button -> 
 
 Channel 3
-D-Pad Up-Down -> Volume Control (different than 1 and 2)
-D-pad Right-Left -> Frequency
-A -> Wave ram?
-B -> 
+↔️ D-Pad Up-Down -> Volume Control (4 settings; 0%, 25%, 50%, 100%)
+↔️ D-pad Right-Left -> Frequency
+🅰️ A button -> Wave ram?
+🅱️ B button -> 
 
 Channel 4
-D-Pad Up-Down -> Volume Control
-D-pad Right-Left -> Frequency (different than 1 and 2 and 3)
-A -> Change LFSR width (bit 3 of NR43)
-B -> increment clock divider?
+↕️ D-Pad Up-Down -> Volume Control
+↔️ D-pad Right-Left -> Frequency
+🅰️ A button -> Change LFSR width (bit 3 of NR43)
+🅱️ B button -> increment clock divider?
 
 BUGS/Improvements
 Increase BPM or get rid of bpm and rely on timer 
