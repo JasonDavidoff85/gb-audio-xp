@@ -25,7 +25,6 @@ wCurrentChannel::   ds 1    ; Currently active/selected channel (0-3)
 wChannel1Freq::     ds 2    ; Channel 1 frequency (11 bits, stored in 2 bytes)
 wChannel2Freq::     ds 2    ; Channel 2 frequency (11 bits, stored in 2 bytes)
 wChannel3Freq::     ds 2    ; Channel 3 frequency (11 bits, stored in 2 bytes)
-wChannel4Freq::     ds 2    ; Channel 4 frequency (11 bits, stored in 2 bytes)
 
 SECTION "Header", ROM0[$100]
 
@@ -55,66 +54,8 @@ TimerHandler:
 	; if at bpm play note and change pallet
 	jr z, .skipReset
 
-	; check input
-	call ReadJoypad
-	ld a, [bJoypadDown]
-	and a, BUTTON_UP
-	jr z, .checkDown
-
-	call IncChannelVol
-.checkDown
-	ld a, [bJoypadDown]
-	and a, BUTTON_DOWN
-	jr z, .checkRight
-
-	call DecChannelVol
-
-.checkRight
-	ld a, [bJoypadDown]
-	and a, BUTTON_RIGHT
-	jr z, .checkLeft
-
-	call IncChannelFreq11Bit
-
-.checkLeft
-	ld a, [bJoypadDown]
-	and a, BUTTON_LEFT
-	jr z, .checkRightAndSelect
-
-	call IncChannelFreq11Bit
-
-.checkRightAndSelect
-	; Check if SELECT + RIGHT is held
-	ld a, [bJoypadDown]
-	and a, BUTTON_SELECT | BUTTON_RIGHT
-	cp BUTTON_SELECT | BUTTON_RIGHT
-	jr nz, .checkLeftAndSelect
-	
-	; Cycle to next channel
-	ld a, [wCurrentChannel]
-	inc a
-	cp 4                    ; check if past last channel
-	jr nz, .setChannel
-	ld a, 0                 ; wrap around to channel 0
-.setChannel:
-	ld [wCurrentChannel], a
-
-.checkLeftAndSelect
-	; Check if SELECT + LEFT is held
-	ld a, [bJoypadDown]
-	and a, BUTTON_SELECT | BUTTON_LEFT
-	cp BUTTON_SELECT | BUTTON_LEFT
-	jr nz, .endCheck
-	
-	; Cycle to previous channel
-	ld a, [wCurrentChannel]
-	dec a
-	cp $FF                  ; check for underflow
-	jr nz, .setPrevChannel
-	ld a, 3                 ; wrap around to channel 3
-.setPrevChannel:
-	ld [wCurrentChannel], a
-.endCheck
+	; handle all input
+	call HandleInput
 
 	; reset counter if at bpm
 	ld bc, 0
@@ -142,10 +83,10 @@ VBlankHandler:
 	; if at bpm play note and change pallet
 	jr z, .skipCpl
 
-	; get pallet and invert and reset
-	ld a, [rBGP]
-	cpl
-	ld [rBGP], a
+	; get pallet and invert and reset (flashing effect)
+	; ld a, [rBGP]
+	; cpl
+	; ld [rBGP], a
 
 	.skipCpl
 	

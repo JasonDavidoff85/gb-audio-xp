@@ -23,8 +23,11 @@ SetupCh1::
 	; %110_ %11010110
 	ld a, %11010110
 	ld [rNR13], a
-	; Store NR13 value to wChannel1Freq variable
+	; Store NR13 value to wChannel1Freq variable (low byte)
 	ld [wChannel1Freq], a
+	; Initialize high byte of frequency variable  
+	ld a, %00000000
+	ld [wChannel1Freq + 1], a
 
 	ret
 
@@ -43,6 +46,10 @@ SetupCh2::
 	; %110_ %11010110
 	ld a, %11010110
 	ld [rNR23], a
+	; Initialize frequency variable (both bytes)
+	ld [wChannel2Freq], a       ; Store low byte
+	ld a, %00000000             ; set high byte to 0 and no trigger
+	ld [wChannel2Freq + 1], a
 
 	ret
 
@@ -63,6 +70,10 @@ SetupCh3::
 	; %110_ %11010110
 	ld a, %11010110
 	ld [rNR33], a
+	; Initialize frequency variable (both bytes)
+	ld [wChannel3Freq], a       ; Store low byte
+	ld a, %00000000             ; clear high byte
+	ld [wChannel3Freq + 1], a   ; Store high byte
 
 	ret
 
@@ -76,41 +87,47 @@ SetupCh4::
 	ld a, %00100000
 	ld [rNR42], a
 
-	; Freq lsb
+	; Frequency
 	; %110_ %11010110
-	ld a, %01101001 ; change this as custom param
+	ld a, %01101001 ; TODO change this to something significant
 	ld [rNR43], a
 
 	ret
 
 
+; Trigger channel 1 with no length enabled
+; and preserves 3 bits of frequency in high byte
 PlayCH1::
-	; Freq msb and trigger
-	; %10000110
-	ld a, %10000001 ;C3
+	ld a, [wChannel1Freq + 1]
+	and %00000111
+	or %10000000 ; Set bit 7 (trigger)
 	ld [rNR14], a
 
 	ret
 
+; Trigger channel 2 with no length enabled
+; and preserves 3 bits of frequency in high byte
 PlayCH2::
-	; Freq msb and trigger
-	; %10000110
-	ld a, %10000010 ;C3
+	ld a, [wChannel2Freq + 1]
+	and %00000111
+	or %10000000 ; Set bit 7 (trigger)
 	ld [rNR24], a
 
 	ret
 
+; Trigger channel 3 with no length enabled
+; and preserves 3 bits of frequency in high byte
 PlayCH3::
-	; Trigger freq msb
-	; %110_ %11010110
-	ld a, %10000110
+	ld a, [wChannel3Freq + 1]
+	and %00000111
+	or %10000000 ; Set bit 7 (trigger)
 	ld [rNR34], a
 
 	ret
 
+; Trigger channel 4 with no length enabled
 PlayCH4::
-	; Trigger
-	ld a, %10000000
+	ld a, %10000000 ; Trigger and no length enabled
 	ld [rNR44], a
 
 	ret
@@ -151,12 +168,12 @@ IncChannelVol::
 	; Check if already at max (15)
 	cp 15
 	jr z, .done
-	; Increment
-	inc a
-	; Shift left to restore position
+	
+	inc a ; Increment
+	; Reassign
 	swap a
 	and %11110000
-	; Preserve lower 4 bits of original value
+
 	ld b, a           ; store new upper 4 bits in b
 	ld a, [de]
 	and %00001111     ; get lower 4 bits
@@ -164,6 +181,91 @@ IncChannelVol::
 	ld [de], a
 	call PlayCurrentChannel
 .done
+	ret
+
+; Channel 3 specific volume control using NR32 bits 5-6
+; Volume levels: 00=mute, 11=25%, 10=50%, 01=100% (loudest)
+; Progression: 00 → 11 → 10 → 01 → 00 (wrap)
+IncChannel3Vol::
+	ld a, [rNR32]
+	; Extract bits 5 and 6 (volume control)
+	and %01100000
+	; Shift right to get value in lower bits
+	swap a
+	rrca
+	and %00000011
+	; Increment through the specific volume sequence
+	cp 0 ; 00 (mute)
+	jr nz, .check11
+	ld a, 3
+	jr .setVolume
+.check11
+	cp 3 ; 11 (25%)
+	jr nz, .check10
+	ld a, 2
+	jr .setVolume
+.check10
+	cp 2 ; 10 (50%)
+	jr nz, .check01
+	ld a, 1
+	jr .setVolume
+.check01           
+	ld a, 1 ; stay at 100%
+.setVolume
+	; Re assign
+	rlca
+	swap a
+	and %01100000
+	
+	ld b, a                 ; store new volume bits in b
+	ld a, [rNR32]
+	and %10011111           ; clear bits 5 and 6
+	or b                    ; combine with new volume bits
+	ld [rNR32], a
+	call PlayCurrentChannel
+	ret
+
+
+; Channel 3 specific volume control using NR32 bits 5-6
+; Volume levels: 00=mute, 11=25%, 10=50%, 01=100% (loudest)
+; Progression: 01 → 10 → 11 → 00 → 01 (reverse of increment)
+DecChannel3Vol::
+	ld a, [rNR32]
+	; Extract bits 5 and 6 (volume control)
+	and %01100000
+	; Shift right to get value in lower bits
+	swap a
+	rrca
+	and %00000011
+
+	cp 1 ; 01 (100%)
+	jr nz, .check10
+	ld a, 2
+	jr .setVolume
+.check10
+	cp 2 ; 10 (50%)
+	jr nz, .check11
+	ld a, 3
+	jr .setVolume
+.check11
+	cp 3 ; 11 (25%)
+	jr nz, .check00
+	ld a, 0
+	jr .setVolume
+.check00
+	ld a, 0 ; stay at mute
+.setVolume
+	; Re assign
+	rlca
+	swap a
+	and %01100000
+
+	ld b, a                 ; store new volume bits in b
+	ld a, [rNR32]
+	and %10011111           ; clear bits 5 and 6
+	or b                    ; combine with new volume bits
+	ld [rNR32], a
+	call PlayCurrentChannel
 	ret
 
 
@@ -178,12 +280,12 @@ DecChannelVol::
 	; Check if already at min (0)
 	cp 0
 	jr z, .done
-	; Decrement
-	dec a
-	; Shift left to restore position
-	swap a
+	
+	dec a ; Decrement
+	
+	swap a ; re assign
 	and %11110000
-	; Preserve lower 4 bits of original value
+
 	ld b, a           ; store new upper 4 bits in b
 	ld a, [de]
 	and %00001111     ; get lower 4 bits
@@ -202,7 +304,16 @@ IncChannelPeriod::
 	call PlayCurrentChannel
 	ret
 
-; Increment 11-bit frequency stored in RAM variables
+; Assumes GetChannelPeriodLowReg returns DE pointing to the desired period (frequency LSB) register
+DecChannelPeriod::
+	call GetChannelPeriodLowReg
+	ld a, [de]
+	dec a
+	ld [de], a
+	call PlayCurrentChannel
+	ret
+
+; Increment 11-bit frequency stored in RAM variables for ch 1-3
 ; Uses wChannelxFreq variables to track frequency values
 ; Assumes GetChannelFreqVar returns HL pointing to 16-bit frequency variable
 IncChannelFreq11Bit::
@@ -240,14 +351,69 @@ IncChannelFreq11Bit::
 	ret
 	
 .overflow:
-	; Handle overflow - wrap around to 0
-	ld hl, $07FF                ; Clamp to max 11-bit value
+	; Handle overflow - stay at max, don't apply increment
+	ld hl, $07FF                ; Set to max 11-bit value
 	
-	; Store 0 to RAM
+	; Store max value to RAM
 	call GetChannelFreqVar
-	ld [hl], l                  ; Store low byte (0)
+	ld [hl], $FF                ; Store low byte (max)
 	inc hl  
-	ld [hl], h                  ; Store high byte (0)
+	ld [hl], $07                ; Store high byte (max)
+	
+	; Update hardware registers
+	call UpdateChannelFreqRegisters
+	pop hl
+	ret
+
+; Decrement 11-bit frequency stored in RAM variables just for ch 1-3
+; Uses wChannelxFreq variables to track frequency values
+; Assumes GetChannelFreqVar returns HL pointing to 16-bit frequency variable
+DecChannelFreq11Bit::
+	push hl
+	; Get pointer to frequency variable in RAM
+	call GetChannelFreqVar      ; HL points to wChannelxFreq
+	
+	; Load current 16-bit frequency value
+	ld a, [hli]                 ; Load low byte, increment HL
+	ld b, [hl]                  ; Load high byte
+	ld l, a                     ; Put low byte back in L
+	ld h, b                     ; Put high byte in H
+	
+	; Check for underflow before decrementing
+	ld de, 16                   ; Changed back to 16 from 1
+	ld a, l                     ; Get low byte
+	sub e                       ; Subtract 16 from low byte
+	ld c, a                     ; Save result in C
+	ld a, h                     ; Get high byte
+	sbc 0                       ; Subtract borrow from high byte
+	jr c, .underflow            ; If carry set, we have underflow
+	
+	; No underflow, store decremented value
+	ld h, a                     ; High byte result
+	ld l, c                     ; Low byte result
+	
+	; Store updated frequency back to RAM
+	ld d, l                     ; Store low byte in D
+	ld e, h                     ; Store high byte in E
+	call GetChannelFreqVar      ; HL points to wChannelxFreq again
+	ld [hl], d                  ; Store low byte
+	inc hl
+	ld [hl], e                  ; Store high byte
+	
+	; Update hardware registers from RAM value
+	call UpdateChannelFreqRegisters
+	pop hl
+	ret
+	
+.underflow:
+	; Handle underflow - stay at minimum, don't apply decrement
+	ld hl, $0000                ; Set to min value (0)
+	
+	; Store min value to RAM
+	call GetChannelFreqVar
+	ld [hl], $00                ; Store low byte (min)
+	inc hl  
+	ld [hl], $00                ; Store high byte (min)
 	
 	; Update hardware registers
 	call UpdateChannelFreqRegisters
@@ -280,6 +446,54 @@ UpdateChannelFreqRegisters::
 	ld [de], a                  ; Write back to NRx4
 	ret
 
+; Increment Channel 4 frequency (NR43 bits 4-7)
+; decrements the shift clock frequency 
+IncChannel4Freq::
+	; get current value and isolate clock shift bits
+	ld a, [rNR43]
+	and %11110000
+	swap a
+	; Check if already at 0
+	cp 0
+	jr z, .done
+
+	dec a
+	; reshift
+	swap a
+	and %11110000
+
+	ld b, a  ; store new upper 4 bits in b
+	ld a, [rNR43]
+	and %00001111               
+	or b
+	ld [rNR43], a ; push back
+	call PlayCurrentChannel
+.done
+	ret
+
+; Decrement Channel 4 frequency (NR43 bits 4-7)
+; Increments the shift clock frequency
+DecChannel4Freq::
+	ld a, [rNR43] ; get current value and isolate clock shift bits
+	and %11110000
+	swap a
+	; Check if already at max (15)
+	cp 15
+	jr z, .done
+
+	inc a
+	; reshift
+	swap a
+	and %11110000
+
+	ld b, a ; store new upper 4 bits in b
+	ld a, [rNR43]
+	and %00001111
+	or b
+	ld [rNR43], a
+	call PlayCurrentChannel
+.done
+	ret
 
 ;; Test for special function
 IncNR11Duty::

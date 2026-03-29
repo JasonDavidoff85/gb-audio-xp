@@ -11,13 +11,41 @@ Writen in assembly for RGBDS
 - Dpad up and down control volume -- ~~milestore 2~~ **DONE**
 - Dpad left and right control pitch -- milestore 3
 - A and B button is special function -- milestone 4
+- Select + Down mutes channel -- 
 - Different graphics to represent each channel and volume -- milestone 5
 - graphical embelishments to represent special functions -- milestone 6
 
+## Usage
+Select + dpad Right-Left -> Change channel
+Select + down -> Mute current channel
+
+Channel 1
+D-Pad Up-Down -> Volume Control
+D-pad Right-Left -> Frequency
+A -> Change Sweep
+B -> 
+
+Channel 2
+D-Pad Up-Down -> Volume Control
+D-pad Right-Left -> Frequency
+A -> Change Sweep
+B -> 
+
+Channel 3
+D-Pad Up-Down -> Volume Control (different than 1 and 2)
+D-pad Right-Left -> Frequency
+A -> Wave ram?
+B -> 
+
+Channel 4
+D-Pad Up-Down -> Volume Control
+D-pad Right-Left -> Frequency (different than 1 and 2 and 3)
+A -> Change LFSR width (bit 3 of NR43)
+B -> increment clock divider?
 
 BUGS/Improvements
 Increase BPM or get rid of bpm and rely on timer 
-channel 3 volume
+Changing channels will result in freq changes by accident
 
 ## Setting up
 
