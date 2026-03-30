@@ -63,7 +63,6 @@ HandleInput::
 	call DecChannelFreq11Bit
 
 .checkRightAndSelect
-	; Check if SELECT + RIGHT is held
 	ld a, [bJoypadDown]
 	and a, BUTTON_SELECT | BUTTON_RIGHT
 	cp BUTTON_SELECT | BUTTON_RIGHT
@@ -82,13 +81,11 @@ HandleInput::
 	ld [rBGP], a
 
 .checkLeftAndSelect
-	; Check if SELECT + LEFT is held
 	ld a, [bJoypadDown]
 	and a, BUTTON_SELECT | BUTTON_LEFT
 	cp BUTTON_SELECT | BUTTON_LEFT
-	jr nz, .endCheck
+	jr nz, .checkB
 	
-	; Cycle to previous channel
 	ld a, [wCurrentChannel]
 	dec a
 	cp $FF                  ; check for underflow
@@ -99,6 +96,14 @@ HandleInput::
 	ld a, [rBGP] ; change pallet for visual feedback
 	cpl
 	ld [rBGP], a
+
+.checkB
+	ld a, [bJoypadDown]
+	and a, BUTTON_B
+	jr z, .endCheck
+	
+	call CycleWaveDuty
+
 .endCheck
 	ret
 

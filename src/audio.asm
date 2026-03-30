@@ -9,6 +9,8 @@ SetupCh1::
 	ld a, %00000111 ; turn on off as param?
 	ld [rNR10], a
 
+	; TODO random sweep direction, individual step and sweep pace
+
 	; Set wave duty.
 	; %01000010 $80
 	ld a, %10000000 ; change wave size as param? or length timer?
@@ -32,6 +34,8 @@ SetupCh1::
 	ret
 
 SetupCh2::
+	; TODO random sweep direction, individual step and sweep pace
+
 	; Set wave duty.
 	; %01000010
 	ld a, %10000000
@@ -495,28 +499,51 @@ DecChannel4Freq::
 .done
 	ret
 
-;; Test for special function
-IncNR11Duty::
+;; Cycle wave duty for current channel (only applies to channels 1 and 2)
+CycleWaveDuty::
+	ld a, [wCurrentChannel]
+	cp 0
+	jr z, .useNR11
+	cp 1
+	jr z, .useNR21
+	ret ; Channels 3 and 4 don't have wave duty
+
+.useNR11:
 	ld a, [rNR11]
+	jr .processDuty
+
+.useNR21:
+	ld a, [rNR21]
+
+.processDuty:
 	; Extract bits 6 and 7 (wave duty)
 	and %11000000
-	; Shift right to get value in lower bits
+	swap a
 	rrca
 	rrca
-	; Increment and wrap around after 3 (00, 01, 10, 11)
+	; Increment and re swap
 	inc a
 	and %00000011
-	; Shift left to put back in bits 6 and 7
 	swap a
-	and %11000000
-	; Preserve lower 6 bits of original value
-	ld a, [rNR11]
-	ld b, a
-	and b
-	; Clear bits 6 and 7 in original value
-	ld a, [rNR11]
+	rlca 
+	rlca
+	
+	ld c, a ; Save new duty bits in C
+	
+	; Get current channel and write back to correct register
+	ld a, [wCurrentChannel]
+	cp 0
+	jr z, .writeNR11
+	
+	ld a, [rNR21]
 	and %00111111
-	; Combine new duty bits with lower bits
-	or b
+	or c ; Set new duty bits
+	ld [rNR21], a
+	ret
+
+.writeNR11:
+	ld a, [rNR11]  
+	and %00111111
+	or c ; Set new duty bits
 	ld [rNR11], a
 	ret
