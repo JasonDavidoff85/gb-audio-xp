@@ -1,8 +1,27 @@
+; ------------------------------------------------------------------------------
+; Constants
+; ------------------------------------------------------------------------------
 ; Number of bytes in the tileset for the game.
 DEF len_Tileset EQU 64
 
 ; Number of bytes in the level's tilemap.
 DEF len_LevelTilemap EQU 1024
+
+; WRAM location for Object (Sprite) OAM data that is transferred to VRAM via DMA
+; at the end of each frame during the VBLANK period.
+DEF pSpriteOAM EQU $C100
+
+; WRAM copy of the level data that is used to handle game mechanics and events.
+DEF pLevelData EQU $D000
+
+; Length of the OAM data region, in bytes.
+DEF len_SpriteOAM EQU 160
+
+; Number of bytes in the tileset for the game.
+; DEF len_Tileset EQU 6144
+
+; Number of bytes int the level data.
+DEF len_LevelData EQU 1024
 
 ; ------------------------------------------------------------------------------
 ; `macro WaitForVblank()`
@@ -25,6 +44,13 @@ MACRO WaitForVblankEnd
   cp 144
   jr nc, :-
 ENDM
+
+; ------------------------------------------------------------------------------
+; `func DMATransfer()`
+;
+; Transfers sprites from WRAM to VRAM using the DMA.
+; ------------------------------------------------------------------------------
+DEF DMATransfer EQU $FF80
 
 ; Bitfield that stores current buttons being pressed on the Game Boy's joypad.
 ;
