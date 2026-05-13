@@ -547,3 +547,26 @@ CycleWaveDuty::
 	or c ; Set new duty bits
 	ld [rNR11], a
 	ret
+
+; Cycle sweep pace for channel 1 (NR10 bits 6-4)
+; Increments the 3-bit pace field (bits 4,5,6) and wraps 111 -> 000
+CycleWavePace::
+	ld a, [rNR10]
+	and %01110000       ; isolate bits 6-4
+	rrca
+	rrca
+	rrca
+	rrca                ; shift right 4 -> value in bits 2-0
+	inc a
+	and %00000111       ; wrap: 111+1 -> 000
+	rlca
+	rlca
+	rlca
+	rlca                ; shift left 4 -> back to bits 6-4
+
+	ld b, a
+	ld a, [rNR10]
+	and %10001111       ; clear bits 6-4
+	or b                ; set new pace bits
+	ld [rNR10], a
+	ret

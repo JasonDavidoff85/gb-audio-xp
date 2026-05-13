@@ -100,9 +100,16 @@ HandleInput::
 .checkB
 	ld a, [bJoypadDown]
 	and a, BUTTON_B
-	jr z, .endCheck
-	
+	jr z, .checkA
+
 	call CycleWaveDuty
+
+.checkA
+	ld a, [bJoypadDown]
+	and a, BUTTON_A
+	jr z, .endCheck
+
+	call CycleWavePace
 
 .endCheck
 	ret

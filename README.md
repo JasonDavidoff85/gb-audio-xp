@@ -19,28 +19,28 @@ Select + dpad Right-Left -> Change channel
 Select + down -> Mute current channel
 
 Channel 1
-↕️ D-Pad Up-Down -> Volume Control 
-↔️ D-pad Right-Left -> Frequency
-🅰️ A button -> Cycle Pace
-🅱️ B button -> Wave Duty Cycle
+↕ D-Pad Up-Down -> Volume Control 
+↔ D-pad Right-Left -> Frequency
+🅰 A button -> Cycle Pace
+🅱 B button -> Wave Duty Cycle
 
 Channel 2
-↕️ D-Pad Up-Down -> Volume Control
-↔️ D-pad Right-Left -> Frequency
-🅰️ A button -> Cycle Individual step or Sweep Pace (test it out)
-🅱️ B button -> Wave Duty Cycle
+↕ D-Pad Up-Down -> Volume Control
+↔ D-pad Right-Left -> Frequency
+🅰 A button -> Cycle Individual step or Sweep Pace (test it out)
+🅱 B button -> Wave Duty Cycle
 
 Channel 3
-↔️ D-Pad Up-Down -> Volume Control (4 settings; 0%, 25%, 50%, 100%)
-↔️ D-pad Right-Left -> Frequency
-🅰️ A button -> (GBC only) Writes random sample to (essentially) random ram wave index
-🅱️ B button -> Change frequency radomly
+↔ D-Pad Up-Down -> Volume Control (4 settings; 0%, 25%, 50%, 100%)
+↔ D-pad Right-Left -> Frequency
+🅰 A button -> (GBC only) Writes random sample to (essentially) random ram wave index
+🅱 B button -> Change frequency radomly
 
 Channel 4
-↕️ D-Pad Up-Down -> Volume Control
-↔️ D-pad Right-Left -> Frequency
-🅰️ A button -> Change LFSR width (bit 3 of NR43)
-🅱️ B button -> increment clock divider?
+↕ D-Pad Up-Down -> Volume Control
+↔ D-pad Right-Left -> Frequency
+🅰 A button -> Change LFSR width (bit 3 of NR43)
+🅱 B button -> increment clock divider?
 
 BUGS/Improvements
 Increase BPM or get rid of bpm and rely on timer 
