@@ -14,7 +14,7 @@ VBlankInterupt:
 
 
 SECTION "BPM Counter", HRAM
-hBPMCounter:
+hBPMCounter::
 	ds 2
 
 SECTION "Variables", WRAM0[$C022]
@@ -25,6 +25,12 @@ wCurrentChannel::   ds 1    ; Currently active/selected channel (0-3)
 wChannel1Freq::     ds 2    ; Channel 1 frequency (11 bits, stored in 2 bytes)
 wChannel2Freq::     ds 2    ; Channel 2 frequency (11 bits, stored in 2 bytes)
 wChannel3Freq::     ds 2    ; Channel 3 frequency (11 bits, stored in 2 bytes)
+wScrollX::          ds 1    ; Horizontal scroll position
+wScrollY::          ds 1    ; Vertical scroll position
+wScrollCounter::    ds 1    ; Counter to slow down scroll speed
+wTileIndex::        ds 1    ; Tile index used by SetChNTilemap routines
+wVBlankFunc::       ds 2    ; Pointer to routine called each VBlank
+wFillTilemapPending:: ds 1  ; Non-zero triggers a full tilemap fill next VBlank
 
 SECTION "Header", ROM0[$100]
 
@@ -73,24 +79,11 @@ TimerHandler:
 
 SECTION "VBlank Handler", ROM0
 VBlankHandler:
-
-	; load counter and increment
-	ldh a, [hBPMCounter + 1]
-	
-	; check bit (bpm)
-	bit 5, a
-
-	; if at bpm play note and change pallet
-	jr z, .skipCpl
-
-	; get pallet and invert and reset (flashing effect)
-	; ld a, [rBGP]
-	; cpl
-	; ld [rBGP], a
-
-	.skipCpl
-	
-	reti
+	ld a, [wVBlankFunc]
+	ld l, a
+	ld a, [wVBlankFunc + 1]
+	ld h, a
+	jp hl
 
 SECTION "Main", ROM0
 Main:
@@ -189,6 +182,12 @@ Setup:
 
 	call ClearWRAM
 
+	; Initialize scroll position
+	xor a, a
+	ld [wScrollX], a
+	ld [wScrollY], a
+	ld [wScrollCounter], a
+
 	; Initialize channel variables
 	xor a, a
 	ld [wCurrentChannel], a  ; start with channel 0
@@ -224,7 +223,7 @@ Setup:
 	; set b to 0 to use as bpm counter
 	;ld bc, $0000
 
-	call LoadLevel
+	call LoadSingleTileBackground
 
 	call SetupCh1
 	call SetupCh2
@@ -236,11 +235,18 @@ Setup:
 	ld a, %11100100
 	ld [rBGP], a
 
+	; Initialize VBlank function pointer
+	ld hl, DefaultVBlankHandler
+	ld a, l
+	ld [wVBlankFunc], a
+	ld a, h
+	ld [wVBlankFunc + 1], a
+
 	; turn on display
 	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
   	ld [rLCDC], a
 
-	reti	
+	reti
 
 ClearWRAM:
 	ld bc, $2000
@@ -255,20 +261,73 @@ ClearWRAM:
 	ret
 
 ; ------------------------------------------------------------------------------
-; `func LoadLevel()`
+; `func LoadSingleTileBackground()`
 ;
-; Copies level data from the ROM into RAM and initializes level variables.
+; Copies the first 16 bytes (one tile) of test1.bin into tile 0 of VRAM tile
+; data, then fills the entire 32x32 background tilemap with index 0 so every
+; background tile renders as that single tile.
 ; ------------------------------------------------------------------------------
-LoadLevel:
+LoadSingleTileBackground:
 	ld bc, len_Tileset
 	ld de, Tileset
 	ld hl, $8000
 	call LoadData
-	ld bc, len_LevelTilemap
-	ld de, LevelTilemap
+
+	ld bc, $1800 - len_Tileset
+.clear_tiles
+	xor a, a
+	ld [hli], a
+	dec bc
+	ld a, b
+	or a, c
+	jr nz, .clear_tiles
+
+	ld bc, $0400
 	ld hl, $9800
-	call LoadData
+.fill_loop
+	xor a, a
+	ld [hli], a
+	dec bc
+	ld a, b
+	or a, c
+	jr nz, .fill_loop
 	ret
+
+; ------------------------------------------------------------------------------
+; `func SetCh1Tilemap()`
+;
+; Fills the top-left 16x16 quadrant of the BG tilemap ($9800) with the
+; tile index stored in wTileIndex.
+; ------------------------------------------------------------------------------
+SetCh1Tilemap:
+    ret
+
+; ------------------------------------------------------------------------------
+; `func SetCh2Tilemap()`
+;
+; Fills the top-right 16x16 quadrant of the BG tilemap ($9800) with the
+; tile index stored in wTileIndex.
+; ------------------------------------------------------------------------------
+SetCh2Tilemap:
+    ret
+
+; ------------------------------------------------------------------------------
+; `func SetCh3Tilemap()`
+;
+; Fills the bottom-left 16x16 quadrant of the BG tilemap ($9800) with the
+; tile index stored in wTileIndex.
+; ------------------------------------------------------------------------------
+SetCh3Tilemap:
+    ret
+
+; ------------------------------------------------------------------------------
+; `func SetCh4Tilemap()`
+;
+; Fills the bottom-right 16x16 quadrant of the BG tilemap ($9800) with the
+; tile index stored in wTileIndex.
+; ------------------------------------------------------------------------------
+SetCh4Tilemap:
+    ret
 
 ; ------------------------------------------------------------------------------
 ; `func LoadData(bc, de, hl)`
@@ -312,25 +371,4 @@ ChannelTriggerRegs:
     dw rNR24    ; Channel 2
 	dw rNR34    ; Channel 3 (special case)
     dw rNR44    ; Channel 4
-
-; ------------------------------------------------------------------------------
-; `binary data Tileset`
-;
-; This is the tileset data for the game. Since it is just a demo, I was able to
-; fit all the graphics I need into the GameBoy's 6144 byte character RAM region.
-; Bigger games will need to swap out graphics during runtime based on what needs
-; to be rendered at a given time.
-; ------------------------------------------------------------------------------
-Tileset:: INCBIN "bin/tiles.bin"
-
-; ------------------------------------------------------------------------------
-; `binary data LevelTilemap`
-;
-; This is the 32 x 32 tile data for the background tiles representing the game's
-; level. For this project I kept things simple by using the binary tilemap data
-; directly. In more advanced projects one would have much larger runs of data
-; representing levels and use an encoding scheme (e.g. run-length encoding) to
-; minimize ROM data usage.
-; ------------------------------------------------------------------------------
-LevelTilemap:: INCBIN "bin/test1.bin"
 

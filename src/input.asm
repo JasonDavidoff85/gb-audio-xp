@@ -51,56 +51,41 @@ HandleInput::
 .checkLeft
 	ld a, [bJoypadDown]
 	and a, BUTTON_LEFT
-	jr z, .checkRightAndSelect
+	jr z, .checkSelect
 
 	; Check if current channel is channel 4`
 	ld a, [wCurrentChannel]
 	cp 3
 	jr nz, .normalDecFreq
 	call DecChannel4Freq
-	jr .checkRightAndSelect
+	jr .checkSelect
 .normalDecFreq
 	call DecChannelFreq11Bit
 
-.checkRightAndSelect
+.checkSelect
 	ld a, [bJoypadDown]
-	and a, BUTTON_SELECT | BUTTON_RIGHT
-	cp BUTTON_SELECT | BUTTON_RIGHT
-	jr nz, .checkLeftAndSelect
-	
-	; Cycle to next channel
+	and a, BUTTON_SELECT
+	jr z, .checkB
+
 	ld a, [wCurrentChannel]
 	inc a
-	cp 4                    ; check if past last channel
+	cp 4                    ; wrap after channel 3
 	jr nz, .setChannel
-	ld a, 0                 ; wrap around to channel 0
+	ld a, 0
 .setChannel:
 	ld [wCurrentChannel], a
-	ld a, [rBGP] ; change pallet for visual feedback
-	cpl
-	ld [rBGP], a
-
-.checkLeftAndSelect
-	ld a, [bJoypadDown]
-	and a, BUTTON_SELECT | BUTTON_LEFT
-	cp BUTTON_SELECT | BUTTON_LEFT
-	jr nz, .checkB
-	
-	ld a, [wCurrentChannel]
-	dec a
-	cp $FF                  ; check for underflow
-	jr nz, .setPrevChannel
-	ld a, 3                 ; wrap around to channel 3
-.setPrevChannel:
-	ld [wCurrentChannel], a
-	ld a, [rBGP] ; change pallet for visual feedback
-	cpl
-	ld [rBGP], a
+	ld a, 1
+	ld [wFillTilemapPending], a
 
 .checkB
 	ld a, [bJoypadDown]
 	and a, BUTTON_B
 	jr z, .checkA
+
+	ld a, [rBGP] ; change palette for visual feedback
+	rlca
+	rlca
+	ld [rBGP], a
 
 	call CycleWaveDuty
 
@@ -109,7 +94,7 @@ HandleInput::
 	and a, BUTTON_A
 	jr z, .endCheck
 
-	call CycleWavePace
+	call TriggerSweep
 
 .endCheck
 	ret

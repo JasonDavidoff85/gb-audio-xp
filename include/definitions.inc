@@ -2,10 +2,10 @@
 ; Constants
 ; ------------------------------------------------------------------------------
 ; Number of bytes in the tileset for the game.
-DEF len_Tileset EQU 64
+DEF len_Tileset EQU 320
 
 ; Number of bytes in the level's tilemap.
-DEF len_LevelTilemap EQU 1024
+DEF len_LevelTilemap EQU 384
 
 ; WRAM location for Object (Sprite) OAM data that is transferred to VRAM via DMA
 ; at the end of each frame during the VBLANK period.

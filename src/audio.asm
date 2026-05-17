@@ -548,25 +548,25 @@ CycleWaveDuty::
 	ld [rNR11], a
 	ret
 
-; Cycle sweep pace for channel 1 (NR10 bits 6-4)
-; Increments the 3-bit pace field (bits 4,5,6) and wraps 111 -> 000
-CycleWavePace::
-	ld a, [rNR10]
-	and %01110000       ; isolate bits 6-4
-	rrca
-	rrca
-	rrca
-	rrca                ; shift right 4 -> value in bits 2-0
-	inc a
-	and %00000111       ; wrap: 111+1 -> 000
-	rlca
-	rlca
-	rlca
-	rlca                ; shift left 4 -> back to bits 6-4
-
+; Trigger a sweep for channel 1 (NR10 bits 6-4)
+TriggerSweep::
+	ld a, [rNR12]
+	and %00000111       ; isolate bits 2-0
+	cp %00000111        ; check if 111
+	jr z, .setZero
+	cp %00000000        ; check if 000
+	jr z, .setMax
+	jr .done            ; neither 000 nor 111, do nothing
+.setZero
+	ld a, %00000000
+	jr .writeback
+.setMax
+	ld a, %00000111
+.writeback
 	ld b, a
-	ld a, [rNR10]
-	and %10001111       ; clear bits 6-4
-	or b                ; set new pace bits
-	ld [rNR10], a
+	ld a, [rNR12]
+	and %11111000       ; clear bits 2-0
+	or b
+	ld [rNR12], a
+.done
 	ret
