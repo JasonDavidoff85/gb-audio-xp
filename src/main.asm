@@ -208,8 +208,8 @@ Setup:
 	ld a, $FF
 	ld [rTMA], a
 
-	; Set Timer Control to 496Hz
-	ld a, $04
+	; Set Timer Control to max
+	ld a, $07
 	ld [rTAC], a
 
 	; Interupt timer and vblank enable

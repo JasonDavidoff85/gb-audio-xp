@@ -14,9 +14,14 @@ Writen in assembly for RGBDS
 - Different graphics to represent each channel and volume -- milestone 5
 - graphical embelishments to represent special functions -- milestone 6
 
+randomness:
+things to set random:
+nr12 env dir.
+nr12 sweep pace togle amount (setting bits 0-3 as either 001, 011 or 111)
+
 ## Usage
 Select -> Cycle through channels
-Select + down -> Mute current channel
+start -> Mute current channel
 
 Channel 1
 
@@ -24,7 +29,7 @@ Channel 1
 
 ↔ D-pad Right-Left -> Frequency
 
-🅐 button -> Trigger a sweep
+🅐 button -> Toggle sweeping (this will disable volume control when toggeled)
 
 🅑 button -> Wave Duty Cycle
 
@@ -35,7 +40,7 @@ Channel 2
 
 ↔ D-pad Right-Left -> Frequency
 
-🅐 button -> Cycle Individual step or Sweep Pace (test it out)
+🅐 button -> Cycle Panning
 
 🅑 button -> Wave Duty Cycle
 
@@ -62,8 +67,6 @@ Channel 4
 
 
 BUGS/Improvements
-Increase BPM or get rid of bpm and rely on timer 
-Changing channels will result in freq changes by accident
 
 ## Setting up
 

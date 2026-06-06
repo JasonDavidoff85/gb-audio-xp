@@ -187,6 +187,16 @@ IncChannelVol::
 .done
 	ret
 
+; Mute the current channel by setting the high 4 bits (volume) to 0
+; Assumes GetChannelVolumeReg returns DE pointing to the desired volume register
+MuteChannel::
+	call GetChannelVolumeReg
+	ld a, [de]
+	and %00001111     ; clear upper 4 bits (volume), keep lower 4 bits
+	ld [de], a
+	call PlayCurrentChannel
+	ret
+
 ; Channel 3 specific volume control using NR32 bits 5-6
 ; Volume levels: 00=mute, 11=25%, 10=50%, 01=100% (loudest)
 ; Progression: 00 → 11 → 10 → 01 → 00 (wrap)
@@ -552,16 +562,16 @@ CycleWaveDuty::
 TriggerSweep::
 	ld a, [rNR12]
 	and %00000111       ; isolate bits 2-0
-	cp %00000111        ; check if 111
+	cp %00000001        ; check if 001 (make this a variable and have it be random)
 	jr z, .setZero
 	cp %00000000        ; check if 000
 	jr z, .setMax
-	jr .done            ; neither 000 nor 111, do nothing
+	jr .done            ; neither 000 nor 001, do nothing
 .setZero
 	ld a, %00000000
 	jr .writeback
 .setMax
-	ld a, %00000111
+	ld a, %00000001
 .writeback
 	ld b, a
 	ld a, [rNR12]
@@ -570,3 +580,24 @@ TriggerSweep::
 	ld [rNR12], a
 .done
 	ret
+
+; Cycle NR51 panning between three states each call:
+;   %11111111 -> %11011111 -> %11111101 -> (wrap)
+CyclePanning::
+	ld a, [rNR51]
+	cp %11111111
+	jr nz, .check2
+	ld a, %11011111
+	jr .writeback
+.check2
+	cp %11011111
+	jr nz, .default
+	ld a, %11111101
+	jr .writeback
+.default
+	ld a, %11111111
+.writeback
+	ld [rNR51], a
+	call PlayCurrentChannel
+	ret
+

@@ -51,16 +51,23 @@ HandleInput::
 .checkLeft
 	ld a, [bJoypadDown]
 	and a, BUTTON_LEFT
-	jr z, .checkSelect
+	jr z, .checkStart
 
 	; Check if current channel is channel 4`
 	ld a, [wCurrentChannel]
 	cp 3
 	jr nz, .normalDecFreq
 	call DecChannel4Freq
-	jr .checkSelect
+	jr .checkStart
 .normalDecFreq
 	call DecChannelFreq11Bit
+
+.checkStart
+	ld a, [bJoypadDown]
+	and a, BUTTON_START
+	jr z, .checkSelect
+
+	call MuteChannel
 
 .checkSelect
 	ld a, [bJoypadDown]
@@ -94,8 +101,27 @@ HandleInput::
 	and a, BUTTON_A
 	jr z, .endCheck
 
-	call TriggerSweep
+	ld a, [wCurrentChannel]
+	ld hl, AButtonFuncTable
+	ld b, 0
+	ld c, a
+	sla c               ; multiply by 2 (2 bytes per entry)
+	add hl, bc
+	ld a, [hli]
+	ld h, [hl]
+	ld l, a
+	jp hl               ; tail-call: dispatched func rets to HandleInput's caller
 
 .endCheck
+	ret
+
+; A button function table, indexed by current channel (0-3)
+AButtonFuncTable:
+	dw TriggerSweep         ; channel 0 (CH1)
+	dw CyclePanning  		; channel 1 (CH2)
+	dw NoOp                 ; channel 2 (CH3)
+	dw NoOp                 ; channel 3 (CH4)
+
+NoOp::
 	ret
 
