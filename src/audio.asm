@@ -601,3 +601,66 @@ CyclePanning::
 	call PlayCurrentChannel
 	ret
 
+
+WriteRandomWaveByte::
+	; Pseudo-random byte from DIV -> $FF30
+	ldh a, [rDIV]
+	ldh [_AUD3WAVERAM], a
+	call PlayCurrentChannel
+	ret
+
+; Set channel 3's frequency low byte (NR33) to a pseudo-random value from rDIV,
+; like WriteRandomWaveByte but driving CH3's pitch. The new period takes effect
+; without a trigger, so CH3 is not retriggered (avoids wave-RAM corruption).
+RandomizeCh3Freq::
+	call Rand8
+	ld [rNR33], a           ; CH3 frequency LSB
+	ld [wChannel3Freq], a   ; keep the RAM copy of the frequency in sync
+
+	; Randomize the high 3 bits of the 11-bit frequency (NR34 bits 2-0)
+	call Rand8
+	and %00000111           ; keep only the 3 high frequency bits
+	ld [wChannel3Freq + 1], a ; keep the RAM copy in sync
+	ld b, a
+	ld a, [rNR34]
+	and %01111000           ; clear freq bits and trigger (bit 7); keep others
+	or b                    ; merge in new high freq bits
+	ld [rNR34], a           ; no trigger, so no wave-RAM corruption
+	ret
+
+; 8-bit maximal-length Galois LFSR (period 255). Returns the next byte in A.
+; Uses wRandomSeed as state and self-seeds if it is ever 0 (0 is a dead state).
+Rand8::
+	ld a, [wRandomSeed]
+	or a
+	jr nz, .shift
+	ld a, $01           ; seed must be non-zero
+.shift
+	srl a               ; shift right; old bit 0 -> carry
+	jr nc, .store
+	xor %10111000       ; tap mask $B8 for a maximal-length 8-bit LFSR
+.store
+	ld [wRandomSeed], a
+	ret
+
+; Toggle bit 3 of NR43 (CH4 noise LFSR width: 15-bit vs 7-bit).
+ToggleNoiseWidth::
+	ld a, [rNR43]
+	xor %00001000           ; toggle bit 3
+	ld [rNR43], a
+	ret
+
+; Increment the low 3 bits of NR43 (CH4 clock divisor), wrapping 111 -> 000.
+CycleNoiseDivisor::
+	ld a, [rNR43]
+	and %00000111           ; isolate bits 2-0
+	inc a
+	and %00000111           ; wrap: 111+1 -> 000
+	ld b, a
+	ld a, [rNR43]
+	and %11111000           ; clear bits 2-0
+	or b                    ; set new divisor bits
+	ld [rNR43], a
+	ret
+
+

@@ -94,7 +94,23 @@ HandleInput::
 	rlca
 	ld [rBGP], a
 
-	call CycleWaveDuty
+	ld a, [wCurrentChannel]
+	cp 0
+	jr nz, .bNot0
+	call CycleWaveDuty      ; channel 0 (CH1)
+	jr .checkA
+.bNot0
+	cp 1
+	jr nz, .bNot1
+	call CycleWaveDuty      ; channel 1 (CH2)
+	jr .checkA
+.bNot1
+	cp 2
+	jr nz, .bNot2
+	call WriteRandomWaveByte ; channel 2 (CH3)
+	jr .checkA
+.bNot2
+	call CycleNoiseDivisor  ; channel 3 (CH4)
 
 .checkA
 	ld a, [bJoypadDown]
@@ -102,26 +118,23 @@ HandleInput::
 	jr z, .endCheck
 
 	ld a, [wCurrentChannel]
-	ld hl, AButtonFuncTable
-	ld b, 0
-	ld c, a
-	sla c               ; multiply by 2 (2 bytes per entry)
-	add hl, bc
-	ld a, [hli]
-	ld h, [hl]
-	ld l, a
-	jp hl               ; tail-call: dispatched func rets to HandleInput's caller
+	cp 0
+	jr nz, .aNot0
+	call TriggerSweep       ; channel 0 (CH1)
+	jr .endCheck
+.aNot0
+	cp 1
+	jr nz, .aNot1
+	call CyclePanning       ; channel 1 (CH2)
+	jr .endCheck
+.aNot1
+	cp 2
+	jr nz, .aNot2
+	call RandomizeCh3Freq   ; channel 2 (CH3)
+	jr .endCheck
+.aNot2
+	call ToggleNoiseWidth   ; channel 3 (CH4)
 
 .endCheck
-	ret
-
-; A button function table, indexed by current channel (0-3)
-AButtonFuncTable:
-	dw TriggerSweep         ; channel 0 (CH1)
-	dw CyclePanning  		; channel 1 (CH2)
-	dw NoOp                 ; channel 2 (CH3)
-	dw NoOp                 ; channel 3 (CH4)
-
-NoOp::
 	ret
 

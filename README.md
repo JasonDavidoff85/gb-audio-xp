@@ -10,7 +10,7 @@ Writen in assembly for RGBDS
 - select plus right and left change which audio channel -- ~~milestone 1~~ **DONE**
 - Dpad up and down control volume -- ~~milestore 2~~ **DONE**
 - Dpad left and right control pitch -- ~~milestore 3~~ **DONE**
-- A and B button is special function -- milestone 4
+- A and B button is special function -- ~~milestone 4~~ **DONE**
 - Different graphics to represent each channel and volume -- milestone 5
 - graphical embelishments to represent special functions -- milestone 6
 
@@ -46,11 +46,11 @@ Channel 2
 
 Channel 3
 
-↔ D-Pad Up-Down -> Volume Control (4 settings; 0%, 25%, 50%, 100%)
+↔ D-Pad Up-Down -> Volume Control
 
 ↔ D-pad Right-Left -> Frequency
 
-🅐 button -> (GBC only) Writes random sample to (essentially) random ram wave index
+🅐 button -> (GBC only?) Writes random sample to (essentially) random ram wave index
 
 🅑 button -> Change frequency radomly
 
@@ -61,9 +61,9 @@ Channel 4
 
 ↔ D-pad Right-Left -> Frequency
 
-🅐 button -> Change LFSR width (bit 3 of NR43)
+🅐 button -> Toggle LFSR randomness width (repetivie vs random)
 
-🅑 button -> increment clock divider?
+🅑 button -> Cycle clock divider
 
 
 BUGS/Improvements

@@ -31,6 +31,7 @@ wScrollCounter::    ds 1    ; Counter to slow down scroll speed
 wTileIndex::        ds 1    ; Tile index used by SetChNTilemap routines
 wVBlankFunc::       ds 2    ; Pointer to routine called each VBlank
 wFillTilemapPending:: ds 1  ; Non-zero triggers a full tilemap fill next VBlank
+wRandomSeed::       ds 1    ; State byte for the Rand8 pseudo-random generator
 
 SECTION "Header", ROM0[$100]
 
