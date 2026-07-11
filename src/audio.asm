@@ -184,6 +184,7 @@ IncChannelVol::
 	or b              ; combine with new upper 4 bits
 	ld [de], a
 	call PlayCurrentChannel
+	call UpdateChannelTile
 .done
 	ret
 
@@ -195,6 +196,7 @@ MuteChannel::
 	and %00001111     ; clear upper 4 bits (volume), keep lower 4 bits
 	ld [de], a
 	call PlayCurrentChannel
+	call UpdateChannelTile
 	ret
 
 ; Channel 3 specific volume control using NR32 bits 5-6
@@ -237,6 +239,7 @@ IncChannel3Vol::
 	or b                    ; combine with new volume bits
 	ld [rNR32], a
 	call PlayCurrentChannel
+	call UpdateChannelTile
 	ret
 
 
@@ -280,6 +283,7 @@ DecChannel3Vol::
 	or b                    ; combine with new volume bits
 	ld [rNR32], a
 	call PlayCurrentChannel
+	call UpdateChannelTile
 	ret
 
 
@@ -296,7 +300,7 @@ DecChannelVol::
 	jr z, .done
 	
 	dec a ; Decrement
-	
+
 	swap a ; re assign
 	and %11110000
 
@@ -306,6 +310,7 @@ DecChannelVol::
 	or b              ; combine with new upper 4 bits
 	ld [de], a
 	call PlayCurrentChannel
+	call UpdateChannelTile
 .done
 	ret
 
@@ -345,11 +350,17 @@ IncChannelFreq11Bit::
 	ld de, 16
 	add hl, de
 	
-	; Check for 11-bit overflow (frequency > $7FF)
+	; Check for overflow (frequency > $07EF: NRx3=$EF, NRx4 low bits=%111)
 	ld a, h
-	and %11111000               ; Check if any bits above bit 2 are set
-	jr nz, .overflow            ; If so, we've overflowed 11 bits
-	
+	cp $08                      ; H >= 8?
+	jr nc, .overflow
+	cp $07                      ; H == 7?
+	jr c, .storeFreq            ; H < 7, still in range
+	ld a, l                     ; H == 7: check low byte
+	cp $F0                      ; L >= $F0 means freq > $07EF
+	jr nc, .overflow
+
+.storeFreq:
 	; Store updated frequency back to RAM
 	; Save updated frequency value before calling GetChannelFreqVar
 	ld d, l                     ; Store low byte in D
@@ -358,24 +369,23 @@ IncChannelFreq11Bit::
 	ld [hl], d                  ; Store low byte
 	inc hl
 	ld [hl], e                  ; Store high byte
-	
+
 	; Update hardware registers from RAM value
 	call UpdateChannelFreqRegisters
+	call UpdateScrollThreshold
 	pop hl
 	ret
-	
+
 .overflow:
-	; Handle overflow - stay at max, don't apply increment
-	ld hl, $07FF                ; Set to max 11-bit value
-	
-	; Store max value to RAM
+	; Cap at max frequency ($07EF: NRx3=$EF, NRx4 low bits=%111)
 	call GetChannelFreqVar
-	ld [hl], $FF                ; Store low byte (max)
-	inc hl  
-	ld [hl], $07                ; Store high byte (max)
-	
+	ld [hl], $EF                ; Store low byte (max = $EF)
+	inc hl
+	ld [hl], $07                ; Store high byte (max = $07)
+
 	; Update hardware registers
 	call UpdateChannelFreqRegisters
+	call UpdateScrollThreshold
 	pop hl
 	ret
 
@@ -416,21 +426,23 @@ DecChannelFreq11Bit::
 	
 	; Update hardware registers from RAM value
 	call UpdateChannelFreqRegisters
+	call UpdateScrollThreshold
 	pop hl
 	ret
-	
+
 .underflow:
 	; Handle underflow - stay at minimum, don't apply decrement
 	ld hl, $0000                ; Set to min value (0)
-	
+
 	; Store min value to RAM
 	call GetChannelFreqVar
 	ld [hl], $00                ; Store low byte (min)
-	inc hl  
+	inc hl
 	ld [hl], $00                ; Store high byte (min)
-	
+
 	; Update hardware registers
 	call UpdateChannelFreqRegisters
+	call UpdateScrollThreshold
 	pop hl
 	ret
 
@@ -478,10 +490,11 @@ IncChannel4Freq::
 
 	ld b, a  ; store new upper 4 bits in b
 	ld a, [rNR43]
-	and %00001111               
+	and %00001111
 	or b
 	ld [rNR43], a ; push back
 	call PlayCurrentChannel
+	call UpdateScrollThreshold  ; keep scroll speed matched to the new pitch
 .done
 	ret
 
@@ -491,8 +504,8 @@ DecChannel4Freq::
 	ld a, [rNR43] ; get current value and isolate clock shift bits
 	and %11110000
 	swap a
-	; Check if already at max (15)
-	cp 15
+	
+	cp %1011 ; max is too low to hear so right before max
 	jr z, .done
 
 	inc a
@@ -506,6 +519,7 @@ DecChannel4Freq::
 	or b
 	ld [rNR43], a
 	call PlayCurrentChannel
+	call UpdateScrollThreshold  ; keep scroll speed matched to the new pitch
 .done
 	ret
 

@@ -70,7 +70,7 @@ HandleInput::
 	call MuteChannel
 
 .checkSelect
-	ld a, [bJoypadDown]
+	ld a, [bJoypadPressed]   ; edge-triggered: one switch per physical press
 	and a, BUTTON_SELECT
 	jr z, .checkB
 
@@ -83,6 +83,52 @@ HandleInput::
 	ld [wCurrentChannel], a
 	ld a, 1
 	ld [wFillTilemapPending], a
+
+	; Update VBlank handler pointer based on new channel
+	ld a, [wCurrentChannel]
+	cp 2
+	jr z, .setCh3Handler
+	cp 3
+	jr z, .setCh4Handler
+	ld hl, Ch12VBlankHandler
+	jr .setHandler
+.setCh3Handler:
+	ld hl, Ch3VBlankHandler
+	jr .setHandler
+.setCh4Handler:
+	ld hl, Ch4VBlankHandler
+.setHandler:
+	ld a, l
+	ld [wVBlankFunc], a
+	ld a, h
+	ld [wVBlankFunc + 1], a
+	call UpdateScrollThreshold
+	call UpdateChannelTile       ; show the new channel's volume-based tile
+
+	; Enable the per-scanline raster-zoom STAT interrupt only on CH3 (index 2)
+	ld a, [wCurrentChannel]
+	cp 2
+	jr z, .enableZoom
+	; Leaving CH3: turn the STAT interrupt off; next VBlank restores rSCY
+	ld a, [rIE]
+	res 1, a                    ; clear IEF_STAT
+	ld [rIE], a
+	jr .zoomDone
+.enableZoom:
+	; Start flat (step 0, centered on current scroll) until CH3's VBlank
+	; computes the real values, so no garbage SCY shows for a partial frame.
+	xor a
+	ldh [hZoomStepLo], a
+	ldh [hZoomStepHi], a
+	ldh [hZoomAccLo], a
+	ld a, [wScrollY]
+	ldh [hZoomAccHi], a
+	ld a, STATF_MODE00          ; interrupt at the start of each HBlank
+	ldh [rSTAT], a
+	ld a, [rIE]
+	set 1, a                    ; set IEF_STAT
+	ld [rIE], a
+.zoomDone:
 
 .checkB
 	ld a, [bJoypadDown]
@@ -120,6 +166,7 @@ HandleInput::
 	ld a, [wCurrentChannel]
 	cp 0
 	jr nz, .aNot0
+	
 	call TriggerSweep       ; channel 0 (CH1)
 	jr .endCheck
 .aNot0

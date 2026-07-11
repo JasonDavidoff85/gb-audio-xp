@@ -2,7 +2,7 @@
 ; Constants
 ; ------------------------------------------------------------------------------
 ; Number of bytes in the tileset for the game.
-DEF len_Tileset EQU 320
+DEF len_Tileset EQU 416
 
 ; Number of bytes in the level's tilemap.
 DEF len_LevelTilemap EQU 384
