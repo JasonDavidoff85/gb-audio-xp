@@ -226,48 +226,29 @@ Ch4VBlankHandler::
 	ld [rLCDC], a
 .skipFill
 
-	; Lock the view to the top-left so the churned region stays on screen.
+	; --- horizontal scroll (gated by threshold); vertical locked to top ---
+	ld a, [wScrollCounter]
+	inc a
+	ld b, a
+	ld a, [wScrollThreshold]
+	cp b
+	jr nz, .updateCounter
+
 	xor a
+	ld [wScrollCounter], a
+	ld a, [wScrollX]
+	inc a
+	ld [wScrollX], a
 	ld [rSCX], a
-	ld [rSCY], a
+	jr .lockY
 
-	; Scatter random tile indices into a chunk of the visible map each frame.
-	; The pointer rolls through the 18 visible rows ($9800-$9A3F, 576 tiles), so
-	; the whole screen refreshes every ~12 frames -> TV-static for the noise
-	; channel. Uses the same Galois LFSR (tap $B8) as Rand8, state in wRandomSeed.
-	ld a, [wCh4FillPtr]
-	ld l, a
-	ld a, [wCh4FillPtr + 1]
-	ld h, a
-	ld a, [wRandomSeed]
-	ld c, a
-	ld b, 48                    ; tiles per frame (raise for faster static)
-.fillLoop:
-	ld a, c
-	srl a
-	jr nc, .noTap
-	xor %10111000               ; LFSR feedback tap ($B8)
-.noTap:
-	ld c, a
-	and %00001111               ; constrain to tile indices 0-15
-	ld [hli], a
-	ld a, h                     ; wrap pointer at $9A40 back to $9800
-	cp $9A
-	jr nz, .noWrap
-	ld a, l
-	cp $40
-	jr nz, .noWrap
-	ld hl, $9800
-.noWrap:
-	dec b
-	jr nz, .fillLoop
+.updateCounter:
+	ld a, b
+	ld [wScrollCounter], a
 
-	ld a, c
-	ld [wRandomSeed], a
-	ld a, l
-	ld [wCh4FillPtr], a
-	ld a, h
-	ld [wCh4FillPtr + 1], a
+.lockY:
+	xor a
+	ld [rSCY], a            ; keep the view flat (clears leftover SCY from CH3 zoom)
 	reti
 
 ; ------------------------------------------------------------------------------
@@ -289,7 +270,19 @@ UpdateScrollThreshold::
 	and %00000111               ; top 3 period bits (0-7)
 	jr .compute
 .ch4Default:
-	ld a, 1                     ; maps to threshold 5 (mid-range)
+	; CH4 has no 11-bit period; derive its pitch from the NR43 clock shift
+	; (bits 7-4). Higher shift = lower pitch, so invert it onto the same 0-5
+	; "bits" scale the others use (higher bits = higher pitch = faster scroll).
+	ld a, [rNR43]
+	swap a
+	and %00001111               ; clock shift (0-11)
+	cp 6                         ; clamp to 0-5
+	jr c, .ch4Clamped
+	ld a, 5
+.ch4Clamped:
+	ld b, a
+	ld a, 5
+	sub b                       ; bits = 5 - clockShift (low shift -> high bits)
 .compute:
 	cp 6                        ; clamp to 0-5
 	jr c, .inRange
@@ -330,20 +323,17 @@ UpdateScrollThreshold::
 ;
 ; Sets the current channel's display tile from its volume. Tiles are interlaced:
 ; each channel has 5 levels stepping by 4 from a base equal to the channel index
-; (CH1->0,4,8,12,16; CH2->1,5,..; CH3->2,6,..). Louder volume = higher tile.
-; CH4 is skipped because it renders random static rather than a uniform tile.
+; (CH1->0,4,8,12,16; CH2->1,5,..; CH3->2,6,..; CH4->3,7,..). Louder = higher tile.
 ; ------------------------------------------------------------------------------
 UpdateChannelTile::
 	push hl
 	push bc
 	push de
 	ld a, [wCurrentChannel]
-	cp 3
-	jr z, .done                 ; CH4 is static; no uniform tile
 	cp 2
 	jr z, .ch3
 
-	; CH1/CH2: volume is the high nibble of NRx2 (0-15)
+	; CH1/CH2/CH4: volume is the high nibble of NRx2/NR42 (0-15)
 	call GetChannelVolumeReg    ; DE -> NRx2
 	ld a, [de]
 	swap a
@@ -425,20 +415,26 @@ Tileset::
     db $01,$00,$02,$00,$04,$00,$08,$00,$10,$00,$20,$00,$40,$00,$80,$00
     db $FF,$00,$FF,$00,$FF,$00,$FF,$00,$00,$00,$FF,$00,$FF,$00,$FF,$00
     db $81,$81,$42,$42,$24,$24,$18,$18,$18,$18,$24,$24,$42,$42,$81,$81
-    db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+    db $00,$00,$00,$00,$00,$00,$10,$10,$00,$00,$00,$00,$00,$00,$00,$00
     db $01,$00,$02,$05,$04,$00,$08,$14,$10,$00,$20,$50,$40,$00,$80,$40
     db $FF,$00,$FF,$00,$FF,$00,$00,$00,$00,$00,$00,$00,$FF,$00,$FF,$00
-    db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
-    db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+    db $81,$81,$42,$42,$24,$24,$18,$18,$18,$18,$24,$24,$42,$42,$81,$81
+    db $00,$00,$00,$00,$24,$24,$00,$00,$00,$00,$24,$24,$00,$00,$00,$00
     db $03,$02,$02,$05,$0E,$0A,$08,$14,$38,$28,$20,$50,$E0,$A0,$80,$40
     db $FF,$00,$FF,$00,$FF,$00,$00,$00,$00,$00,$00,$00,$FF,$00,$FF,$00
     db $99,$99,$42,$42,$24,$24,$99,$99,$99,$99,$24,$24,$42,$42,$99,$99
-    db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+    db $10,$10,$42,$42,$00,$00,$10,$10,$80,$80,$02,$02,$20,$20,$04,$04
     db $C7,$82,$8A,$05,$1F,$0A,$2A,$14,$7C,$28,$A8,$50,$F1,$A0,$A2,$41
     db $00,$00,$FF,$00,$00,$FF,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$00
     db $F9,$99,$43,$42,$25,$24,$99,$99,$99,$99,$A4,$24,$C2,$42,$9F,$99
-    db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+    db $92,$92,$55,$55,$E2,$E2,$5D,$5D,$32,$32,$59,$59,$AA,$AA,$67,$67
     db $C7,$92,$CA,$65,$3F,$6A,$2A,$94,$7C,$29,$AC,$56,$F3,$A6,$A2,$49
     db $FF,$00,$FF,$FF,$00,$FF,$00,$00,$FF,$FF,$00,$00,$FF,$FF,$FF,$00
     db $F9,$9F,$43,$FE,$25,$FE,$99,$FF,$99,$FF,$A4,$7F,$C2,$7F,$9F,$F9
-    db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00
+    db $3F,$3F,$60,$60,$C0,$C0,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
+    db $FC,$FC,$06,$06,$03,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
+    db $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$C0,$C0,$60,$60,$3F,$3F
+    db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$03,$03,$06,$06,$FC,$FC
+    db $7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E
+    db $3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C
+    db $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF

@@ -53,7 +53,6 @@ wCh2ScrollThreshold:: 	ds 1  ; Scroll frames-per-step for channel 2
 wCh1ScrollCounter:: 	ds 1    ; Scroll counter for channel 1
 wCh2ScrollCounter:: 	ds 1    ; Scroll counter for channel 2
 wZoomPhase::        	ds 1    ; CH3 zoom pulse phase (advances each frame)
-wCh4FillPtr::       	ds 2    ; CH4 static: rolling write position in the tilemap
 wVBlankFunc::       	ds 2    ; Pointer to routine called each VBlank
 wFillTilemapPending::	ds 1  ; Non-zero triggers a full tilemap fill next VBlank
 wRandomSeed::       	ds 1    ; State byte for the Rand8 pseudo-random generator
@@ -233,12 +232,7 @@ Setup:
 	ldh [hZoomAccLo], a
 	ldh [hZoomAccHi], a
 
-	; Initialize CH4 static: fill pointer at the top of the tilemap, and a
-	; non-zero LFSR seed (a 0 seed is a dead state for the Galois generator).
-	xor a, a
-	ld [wCh4FillPtr], a      ; $9800 low byte
-	ld a, $98
-	ld [wCh4FillPtr + 1], a  ; $9800 high byte
+	; Seed the LFSR with a non-zero value (0 is a dead state for the Galois generator).
 	ld a, $01
 	ld [wRandomSeed], a
 

@@ -490,10 +490,11 @@ IncChannel4Freq::
 
 	ld b, a  ; store new upper 4 bits in b
 	ld a, [rNR43]
-	and %00001111               
+	and %00001111
 	or b
 	ld [rNR43], a ; push back
 	call PlayCurrentChannel
+	call UpdateScrollThreshold  ; keep scroll speed matched to the new pitch
 .done
 	ret
 
@@ -503,8 +504,8 @@ DecChannel4Freq::
 	ld a, [rNR43] ; get current value and isolate clock shift bits
 	and %11110000
 	swap a
-	; Check if already at max (15)
-	cp 15
+	
+	cp %1011 ; max is too low to hear so right before max
 	jr z, .done
 
 	inc a
@@ -518,6 +519,7 @@ DecChannel4Freq::
 	or b
 	ld [rNR43], a
 	call PlayCurrentChannel
+	call UpdateScrollThreshold  ; keep scroll speed matched to the new pitch
 .done
 	ret
 
