@@ -12,26 +12,51 @@ SECTION "VBlank Interrupt", ROM0[$0040]
 VBlankInterupt:
 	jp VBlankHandler
 
+SECTION "STAT Interrupt", ROM0[$0048]
+StatInterrupt:
+	jp StatZoomHandler
+
 
 SECTION "BPM Counter", HRAM
 hBPMCounter::
 	ds 2
 
+; Raster-zoom state for channel 3. Lives in HRAM so the per-scanline STAT
+; handler can use fast `ldh` access. The accumulator is 8.8 fixed point; its
+; high byte is written to rSCY each HBlank, and `step` (also 8.8, signed) is the
+; per-scanline increment that stretches/squashes the background vertically.
+SECTION "Zoom State", HRAM
+hZoomAccLo::    ds 1
+hZoomAccHi::    ds 1
+hZoomStepLo::   ds 1
+hZoomStepHi::   ds 1
+
 SECTION "Variables", WRAM0[$C022]
 wVol:
 	ds 1
-wChannelVolumes:    ds 4    ; Current volume for each channel
-wCurrentChannel::   ds 1    ; Currently active/selected channel (0-3)
-wChannel1Freq::     ds 2    ; Channel 1 frequency (11 bits, stored in 2 bytes)
-wChannel2Freq::     ds 2    ; Channel 2 frequency (11 bits, stored in 2 bytes)
-wChannel3Freq::     ds 2    ; Channel 3 frequency (11 bits, stored in 2 bytes)
-wScrollX::          ds 1    ; Horizontal scroll position
-wScrollY::          ds 1    ; Vertical scroll position
-wScrollCounter::    ds 1    ; Counter to slow down scroll speed
-wTileIndex::        ds 1    ; Tile index used by SetChNTilemap routines
-wVBlankFunc::       ds 2    ; Pointer to routine called each VBlank
-wFillTilemapPending:: ds 1  ; Non-zero triggers a full tilemap fill next VBlank
-wRandomSeed::       ds 1    ; State byte for the Rand8 pseudo-random generator
+wChannelVolumes:    	ds 4    ; Current volume for each channel
+wCurrentChannel::   	ds 1    ; Currently active/selected channel (0-3)
+wChannel1Freq::     	ds 2    ; Channel 1 frequency (11 bits, stored in 2 bytes)
+wChannel2Freq::     	ds 2    ; Channel 2 frequency (11 bits, stored in 2 bytes)
+wChannel3Freq::     	ds 2    ; Channel 3 frequency (11 bits, stored in 2 bytes)
+wScrollX::          	ds 1    ; Horizontal scroll position
+wScrollY::          	ds 1    ; Vertical scroll position
+wScrollCounter::    	ds 1    ; Scroll counter for ch3/ch4
+wScrollThreshold::  	ds 1    ; Scroll frames-per-step for ch3/ch4
+wTileIndex::        	ds 1    ; Tile index used by SetChNTilemap routines
+wCh1TileIndex::     	ds 1    ; Tile index for channel 1 display
+wCh2TileIndex::     	ds 1    ; Tile index for channel 2 display
+wCh3TileIndex:: 		ds 1	; Tile index for channel 3 display
+wCh4TileIndex:: 		ds 1	; Tile index for channel 4 display
+wCh1ScrollThreshold:: 	ds 1  ; Scroll frames-per-step for channel 1
+wCh2ScrollThreshold:: 	ds 1  ; Scroll frames-per-step for channel 2
+wCh1ScrollCounter:: 	ds 1    ; Scroll counter for channel 1
+wCh2ScrollCounter:: 	ds 1    ; Scroll counter for channel 2
+wZoomPhase::        	ds 1    ; CH3 zoom pulse phase (advances each frame)
+wCh4FillPtr::       	ds 2    ; CH4 static: rolling write position in the tilemap
+wVBlankFunc::       	ds 2    ; Pointer to routine called each VBlank
+wFillTilemapPending::	ds 1  ; Non-zero triggers a full tilemap fill next VBlank
+wRandomSeed::       	ds 1    ; State byte for the Rand8 pseudo-random generator
 
 SECTION "Header", ROM0[$100]
 
@@ -192,7 +217,31 @@ Setup:
 	; Initialize channel variables
 	xor a, a
 	ld [wCurrentChannel], a  ; start with channel 0
-	
+	ld [wCh1TileIndex], a    ; ch1 = tile 0
+	ld a, 1
+	ld [wCh2TileIndex], a    ; ch2 = tile 1
+	ld a, 2
+	ld [wCh3TileIndex], a    ; ch3 = tile 2
+	ld a, 3
+	ld [wCh4TileIndex], a    ; ch4 = tile 3
+
+	; Initialize CH3 raster-zoom state (STAT interrupt stays off until CH3)
+	xor a, a
+	ld [wZoomPhase], a
+	ldh [hZoomStepLo], a
+	ldh [hZoomStepHi], a
+	ldh [hZoomAccLo], a
+	ldh [hZoomAccHi], a
+
+	; Initialize CH4 static: fill pointer at the top of the tilemap, and a
+	; non-zero LFSR seed (a 0 seed is a dead state for the Galois generator).
+	xor a, a
+	ld [wCh4FillPtr], a      ; $9800 low byte
+	ld a, $98
+	ld [wCh4FillPtr + 1], a  ; $9800 high byte
+	ld a, $01
+	ld [wRandomSeed], a
+
 	; Master audio on.
 	ld a, $80
 	ld [rNR52], a 
@@ -230,6 +279,8 @@ Setup:
 	call SetupCh2
 	call SetupCh3
 	call SetupCh4
+	call UpdateScrollThreshold
+	call UpdateChannelTile        ; set the starting channel's tile from its volume
 
 
 	; Initialize the background palettes
@@ -237,7 +288,7 @@ Setup:
 	ld [rBGP], a
 
 	; Initialize VBlank function pointer
-	ld hl, DefaultVBlankHandler
+	ld hl, Ch12VBlankHandler
 	ld a, l
 	ld [wVBlankFunc], a
 	ld a, h

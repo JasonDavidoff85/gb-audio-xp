@@ -2,7 +2,7 @@ INCLUDE "hardware.inc"
 INCLUDE "definitions.inc"
 
 SECTION "Graphics", ROM0
-DefaultVBlankHandler::
+Ch12VBlankHandler::
 	ld a, [wFillTilemapPending]
 	or a
 	jr z, .skipFill
@@ -10,35 +10,63 @@ DefaultVBlankHandler::
 	ld [wFillTilemapPending], a
 	xor a
 	ld [rLCDC], a
+	ld a, [wCurrentChannel]
+	or a
+	jr nz, .ch2Fill
+	ld a, [wCh1TileIndex]
+	jr .doFill
+.ch2Fill:
+	ld a, [wCh2TileIndex]
+.doFill:
+	ld e, a
 	call FillTilemap
 	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
 	ld [rLCDC], a
 .skipFill
 
-	; Update scroll position for infinite scrolling
-	; Only update every 4 frames for slower speed
-	ld a, [wScrollCounter]
+	ld a, [wCurrentChannel]
+	or a
+	jr nz, .ch2Scroll
+
+	ld a, [wCh1ScrollCounter]
 	inc a
-	cp 4                 ; Update every 4 frames
-	jr nz, .updateCounter
-
-	; Reset counter and update scroll
-	xor a, a
-	ld [wScrollCounter], a
-
-	ld a, [wScrollX]
-	inc a                ; Increment X scroll
-	ld [wScrollX], a
-	ld [rSCX], a         ; Write to hardware scroll register
-
-	ld a, [wScrollY]
-	inc a                ; Increment Y scroll
-	ld [wScrollY], a
-	ld [rSCY], a         ; Write to hardware scroll register
+	ld b, a
+	ld a, [wCh1ScrollThreshold]
+	cp b
+	jr nz, .updateCh1Counter
+	xor a
+	ld [wCh1ScrollCounter], a
+	jr .doScroll
+.updateCh1Counter:
+	ld a, b
+	ld [wCh1ScrollCounter], a
 	jr .continueVBlank
 
-.updateCounter:
-	ld [wScrollCounter], a
+.ch2Scroll:
+	ld a, [wCh2ScrollCounter]
+	inc a
+	ld b, a
+	ld a, [wCh2ScrollThreshold]
+	cp b
+	jr nz, .updateCh2Counter
+	xor a
+	ld [wCh2ScrollCounter], a
+	jr .doScroll
+.updateCh2Counter:
+	ld a, b
+	ld [wCh2ScrollCounter], a
+	jr .continueVBlank
+
+.doScroll:
+	ld a, [wScrollX]
+	inc a
+	ld [wScrollX], a
+	ld [rSCX], a
+
+	ld a, [wScrollY]
+	inc a
+	ld [wScrollY], a
+	ld [rSCY], a
 
 .continueVBlank:
 
@@ -60,6 +88,313 @@ DefaultVBlankHandler::
 
 	reti
 
+Ch3VBlankHandler::
+	ld a, [wFillTilemapPending]
+	or a
+	jr z, .skipFill
+	xor a
+	ld [wFillTilemapPending], a
+	xor a
+	ld [rLCDC], a
+	ld a, [wCh3TileIndex]
+	ld e, a
+	call FillTilemap
+	; OBJ off for CH3 so Mode 3 stays short and the per-scanline zoom handler
+	; has a comfortable HBlank window to write rSCY.
+	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_BG8000
+	ld [rLCDC], a
+.skipFill
+
+	; --- horizontal scroll (gated by threshold); zoom owns the Y axis ---
+	ld a, [wScrollCounter]
+	inc a
+	ld b, a
+	ld a, [wScrollThreshold]
+	cp b
+	jr nz, .updateCounter
+
+	xor a, a
+	ld [wScrollCounter], a
+
+	ld a, [wScrollX]
+	inc a
+	ld [wScrollX], a
+	ld [rSCX], a
+
+	ld a, [wScrollY]            ; advances the zoom center vertically
+	inc a
+	ld [wScrollY], a
+	jr .zoomSetup
+
+.updateCounter:
+	ld a, b
+	ld [wScrollCounter], a
+
+.zoomSetup:
+	; Advance the pulse phase by a speed derived from CH3's frequency: the top
+	; 3 period bits (0-7) map to a step of 1,3,..,15, so higher pitch pulses faster.
+	ld a, [wChannel3Freq + 1]
+	and %00000111
+	add a, a
+	inc a
+	ld b, a
+	ld a, [wZoomPhase]
+	add b
+	ld [wZoomPhase], a
+
+	; Triangle wave from the phase -> stepLo in -128..126 (8.8 fraction, signed).
+	; scale = 1 + step ranges ~0.5..1.5, i.e. zoom in to out.
+	bit 7, a
+	jr z, .triUp
+	cpl                         ; fold 128..255 down to 127..0
+.triUp:
+	and %01111111               ; 0..127
+	sub 64                      ; -64..63
+	add a, a                    ; -128..126
+
+	; Sign-extend stepLo into HL = step16, then stash it for the STAT handler.
+	ld l, a
+	ld h, 0
+	bit 7, a
+	jr z, .stepPos
+	ld h, $FF
+.stepPos:
+	ld a, l
+	ldh [hZoomStepLo], a
+	ld a, h
+	ldh [hZoomStepHi], a
+
+	; offset = step16 * 64 (anchors the zoom at screen line 64)
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	add hl, hl
+	add hl, hl
+
+	; accStart = (wScrollY << 8) - offset  -> SCY for line 0 is its high byte
+	ld a, [wScrollY]
+	ld d, a
+	xor a
+	sub l
+	ldh [hZoomAccLo], a
+	ld a, d
+	sbc h
+	ldh [hZoomAccHi], a
+	ld [rSCY], a
+
+	reti
+
+; ------------------------------------------------------------------------------
+; `func StatZoomHandler()`  (LCD STAT / HBlank interrupt, CH3 only)
+;
+; Runs once per visible scanline. Adds the signed 8.8 `step` to the accumulator
+; and writes the new integer part to rSCY, so each scanline samples a slightly
+; different background row. step<0 repeats rows (zoom in); step>0 skips rows
+; (zoom out). Only ever interrupts the idle main loop, but preserves AF/BC anyway.
+; ------------------------------------------------------------------------------
+StatZoomHandler::
+	push af
+	push bc
+	ldh a, [hZoomStepLo]
+	ld b, a
+	ldh a, [hZoomAccLo]
+	add b
+	ldh [hZoomAccLo], a
+	ldh a, [hZoomStepHi]
+	ld b, a
+	ldh a, [hZoomAccHi]
+	adc b
+	ldh [hZoomAccHi], a
+	ldh [rSCY], a
+	pop bc
+	pop af
+	reti
+
+Ch4VBlankHandler::
+	ld a, [wFillTilemapPending]
+	or a
+	jr z, .skipFill
+	xor a
+	ld [wFillTilemapPending], a
+	xor a
+	ld [rLCDC], a
+	ld a, [wCh4TileIndex]
+	ld e, a
+	call FillTilemap
+	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
+	ld [rLCDC], a
+.skipFill
+
+	; Lock the view to the top-left so the churned region stays on screen.
+	xor a
+	ld [rSCX], a
+	ld [rSCY], a
+
+	; Scatter random tile indices into a chunk of the visible map each frame.
+	; The pointer rolls through the 18 visible rows ($9800-$9A3F, 576 tiles), so
+	; the whole screen refreshes every ~12 frames -> TV-static for the noise
+	; channel. Uses the same Galois LFSR (tap $B8) as Rand8, state in wRandomSeed.
+	ld a, [wCh4FillPtr]
+	ld l, a
+	ld a, [wCh4FillPtr + 1]
+	ld h, a
+	ld a, [wRandomSeed]
+	ld c, a
+	ld b, 48                    ; tiles per frame (raise for faster static)
+.fillLoop:
+	ld a, c
+	srl a
+	jr nc, .noTap
+	xor %10111000               ; LFSR feedback tap ($B8)
+.noTap:
+	ld c, a
+	and %00001111               ; constrain to tile indices 0-15
+	ld [hli], a
+	ld a, h                     ; wrap pointer at $9A40 back to $9800
+	cp $9A
+	jr nz, .noWrap
+	ld a, l
+	cp $40
+	jr nz, .noWrap
+	ld hl, $9800
+.noWrap:
+	dec b
+	jr nz, .fillLoop
+
+	ld a, c
+	ld [wRandomSeed], a
+	ld a, l
+	ld [wCh4FillPtr], a
+	ld a, h
+	ld [wCh4FillPtr + 1], a
+	reti
+
+; ------------------------------------------------------------------------------
+; `func UpdateScrollThreshold()`
+;
+; Recomputes wScrollThreshold from the current channel's 11-bit frequency.
+; Clamps the top 3 period bits to 0-5, then threshold = 6 - bits (range 1-6).
+; Call this whenever the channel frequency changes.
+; ------------------------------------------------------------------------------
+UpdateScrollThreshold::
+	push hl
+	push bc
+	ld a, [wCurrentChannel]
+	cp 3                        ; channel 4 has no 11-bit freq var
+	jr z, .ch4Default
+	call GetChannelFreqVar      ; HL = &wChannelXFreq low byte
+	inc hl                      ; HL = high byte of 11-bit frequency
+	ld a, [hl]
+	and %00000111               ; top 3 period bits (0-7)
+	jr .compute
+.ch4Default:
+	ld a, 1                     ; maps to threshold 5 (mid-range)
+.compute:
+	cp 6                        ; clamp to 0-5
+	jr c, .inRange
+	ld a, 5
+.inRange:
+	ld b, a
+	ld a, 6
+	sub b                       ; threshold = 6 - bits (range 1-6)
+	ld b, a
+	ld a, [wCurrentChannel]
+	cp 0
+	jr nz, .notCh1
+	ld a, b
+	ld [wCh1ScrollThreshold], a
+	xor a
+	ld [wCh1ScrollCounter], a
+	jr .doneThreshold
+.notCh1:
+	cp 1
+	jr nz, .notCh2
+	ld a, b
+	ld [wCh2ScrollThreshold], a
+	xor a
+	ld [wCh2ScrollCounter], a
+	jr .doneThreshold
+.notCh2:
+	ld a, b
+	ld [wScrollThreshold], a
+	xor a
+	ld [wScrollCounter], a
+.doneThreshold:
+	pop bc
+	pop hl
+	ret
+
+; ------------------------------------------------------------------------------
+; `func UpdateChannelTile()`
+;
+; Sets the current channel's display tile from its volume. Tiles are interlaced:
+; each channel has 5 levels stepping by 4 from a base equal to the channel index
+; (CH1->0,4,8,12,16; CH2->1,5,..; CH3->2,6,..). Louder volume = higher tile.
+; CH4 is skipped because it renders random static rather than a uniform tile.
+; ------------------------------------------------------------------------------
+UpdateChannelTile::
+	push hl
+	push bc
+	push de
+	ld a, [wCurrentChannel]
+	cp 3
+	jr z, .done                 ; CH4 is static; no uniform tile
+	cp 2
+	jr z, .ch3
+
+	; CH1/CH2: volume is the high nibble of NRx2 (0-15)
+	call GetChannelVolumeReg    ; DE -> NRx2
+	ld a, [de]
+	swap a
+	and %00001111
+	; level = (volume * 5) >> 4  -> 0-4 spread evenly across 0-15
+	ld b, a
+	add a, a
+	add a, a
+	add b                       ; A = volume * 5
+	swap a
+	and %00001111               ; A = level (0-4)
+	jr .store
+
+.ch3:
+	; CH3 volume is NR32 bits 6-5: 00=mute, 01=100%, 10=50%, 11=25%
+	ld a, [rNR32]
+	and %01100000
+	swap a
+	rrca
+	and %00000011               ; raw field 0-3
+	cp 1
+	jr nz, .ch3NotFull
+	ld a, 4                     ; 01 (100%, loudest) -> level 4
+	jr .store
+.ch3NotFull:
+	cp 3
+	jr nz, .store               ; 00->0 and 10->2 already match loudness
+	ld a, 1                     ; 11 (25%) -> level 1
+
+.store:
+	; tile = channel + level*4
+	add a, a
+	add a, a                    ; A = level * 4
+	ld b, a
+	ld a, [wCurrentChannel]
+	ld c, a                     ; C = channel (also the base + table offset)
+	add b                       ; A = tile index
+	ld hl, wCh1TileIndex
+	ld b, 0
+	add hl, bc                  ; HL = &wCh(channel+1)TileIndex
+	ld [hl], a
+	ld a, 1
+	ld [wFillTilemapPending], a ; repaint with the new tile next VBlank
+.done:
+	pop de
+	pop bc
+	pop hl
+	ret
+
+
+
 ; ------------------------------------------------------------------------------
 ; `func FillTilemap()`
 ;
@@ -67,8 +402,6 @@ DefaultVBlankHandler::
 ; stored in wTileIndex.
 ; ------------------------------------------------------------------------------
 FillTilemap::
-	ld a, [wCurrentChannel]
-	ld e, a
 	ld hl, $9800
 	ld bc, $0400
 .loop
