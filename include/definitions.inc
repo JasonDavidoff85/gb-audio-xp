@@ -45,12 +45,6 @@ MACRO WaitForVblankEnd
   jr nc, :-
 ENDM
 
-; ------------------------------------------------------------------------------
-; `func DMATransfer()`
-;
-; Transfers sprites from WRAM to VRAM using the DMA.
-; ------------------------------------------------------------------------------
-DEF DMATransfer EQU $FF80
 
 ; Bitfield that stores current buttons being pressed on the Game Boy's joypad.
 ;

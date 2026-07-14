@@ -2,6 +2,18 @@ INCLUDE "hardware.inc"
 INCLUDE "definitions.inc"
 
 SECTION "Graphics", ROM0
+
+SetupSprites::
+	ld a, 16
+	ld [pSpriteOAM], a
+	ld a, %01010000
+	ld [pSpriteOAM + 1], a
+	ld a, $19
+	ld [pSpriteOAM + 2], a
+	ld a, %00000000
+	ld [pSpriteOAM + 3], a
+	ret
+
 Ch12VBlankHandler::
 	ld a, [wFillTilemapPending]
 	or a
@@ -20,7 +32,7 @@ Ch12VBlankHandler::
 .doFill:
 	ld e, a
 	call FillTilemap
-	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
+	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ8 | LCDCF_BG8000
 	ld [rLCDC], a
 .skipFill
 
@@ -86,6 +98,7 @@ Ch12VBlankHandler::
 
 	.skipCpl
 
+	call DMATransfer
 	reti
 
 Ch3VBlankHandler::
@@ -183,6 +196,7 @@ Ch3VBlankHandler::
 	ldh [hZoomAccHi], a
 	ld [rSCY], a
 
+	call DMATransfer
 	reti
 
 ; ------------------------------------------------------------------------------
@@ -249,6 +263,7 @@ Ch4VBlankHandler::
 .lockY:
 	xor a
 	ld [rSCY], a            ; keep the view flat (clears leftover SCY from CH3 zoom)
+	call DMATransfer
 	reti
 
 ; ------------------------------------------------------------------------------
@@ -402,6 +417,25 @@ FillTilemap::
 	or a, c
 	jr nz, .loop
 	ret
+
+; ------------------------------------------------------------------------------
+; `func DMATransfer()`
+;
+; Copies the 160-byte shadow OAM buffer (pSpriteOAM, WRAM) to real OAM
+; ($FE00-$FE9F) via OAM DMA. The DMA unit locks the CPU out of ROM/WRAM while
+; it runs, so this code only works from HRAM: Setup copies it byte-for-byte
+; into the fixed HRAM slot at DMATransfer ($FF80) once at boot, and every
+; VBlank handler calls it from there.
+; ------------------------------------------------------------------------------
+DMATransferSrc::
+	ld a, HIGH(pSpriteOAM)
+	ldh [rDMA], a
+	ld a, 40
+.wait
+	dec a
+	jr nz, .wait
+	ret
+DMATransferSrcEnd::
 
 ; ------------------------------------------------------------------------------
 ; `binary data Tileset`

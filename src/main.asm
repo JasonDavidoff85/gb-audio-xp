@@ -31,6 +31,12 @@ hZoomAccHi::    ds 1
 hZoomStepLo::   ds 1
 hZoomStepHi::   ds 1
 
+; OAM DMA must run from HRAM (ROM/WRAM are inaccessible while the transfer is
+; active). Setup copies DMATransferSrc here; the linker allocates this so it
+; never overlaps the other HRAM variables above.
+SECTION "OAM DMA Routine", HRAM
+DMATransfer::   ds 16
+
 SECTION "Variables", WRAM0[$C022]
 wVol:
 	ds 1
@@ -269,10 +275,18 @@ Setup:
 
 	call LoadSingleTileBackground
 
+	; Install the OAM DMA routine into HRAM; it must execute from there since
+	; ROM/WRAM are inaccessible to the CPU while the DMA transfer is active.
+	ld bc, DMATransferSrcEnd - DMATransferSrc
+	ld de, DMATransferSrc
+	ld hl, DMATransfer
+	call LoadData
+
 	call SetupCh1
 	call SetupCh2
 	call SetupCh3
 	call SetupCh4
+	call SetupSprites
 	call UpdateScrollThreshold
 	call UpdateChannelTile        ; set the starting channel's tile from its volume
 
