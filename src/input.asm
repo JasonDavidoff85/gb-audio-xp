@@ -168,7 +168,8 @@ HandleInput::
 	jr nz, .aNot0
 	
 	call TriggerSweep       ; channel 0 (CH1)
-	jr .endCheck
+	call IncCh1Squares
+	ret
 .aNot0
 	cp 1
 	jr nz, .aNot1
@@ -183,5 +184,6 @@ HandleInput::
 	call ToggleNoiseWidth   ; channel 3 (CH4)
 
 .endCheck
+	call DecCh1Squares
 	ret
 

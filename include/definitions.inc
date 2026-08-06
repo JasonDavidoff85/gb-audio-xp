@@ -17,6 +17,9 @@ DEF pLevelData EQU $D000
 ; Length of the OAM data region, in bytes.
 DEF len_SpriteOAM EQU 160
 
+; Number of IncCh1Squares calls to skip between actual sprite movements.
+DEF CH1_SQUARE_THRESHOLD EQU 2
+
 ; Number of bytes in the tileset for the game.
 ; DEF len_Tileset EQU 6144
 

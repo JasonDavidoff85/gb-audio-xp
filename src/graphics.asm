@@ -4,15 +4,107 @@ INCLUDE "definitions.inc"
 SECTION "Graphics", ROM0
 
 SetupSprites::
-	ld a, 16
-	ld [pSpriteOAM], a
-	ld a, %01010000
-	ld [pSpriteOAM + 1], a
-	ld a, $19
-	ld [pSpriteOAM + 2], a
-	ld a, %00000000
-	ld [pSpriteOAM + 3], a
+	ld hl, pSpriteOAM
+	ld c, 8
+	ld b, 4
+.ch1SquareLoop:
+	ld a, b
+	bit 0, a
+	jr z, .yStart0
+	ld e, 160
+	jr .gotY
+.yStart0:
+	ld e, 0
+.gotY:
+	ld a, e
+	ld [hli], a
+	ld a, c
+	ld [hli], a
+	ld a, 24
+	ld [hli], a
+	xor a
+	ld [hli], a
+	ld a, e
+	ld [hli], a
+	ld a, c
+	add a, 8
+	ld [hli], a
+	ld a, 24
+	ld [hli], a
+	xor a
+	ld [hli], a
+	ld a, c
+	add a, 40
+	ld c, a
+	dec b
+	jr nz, .ch1SquareLoop
 	ret
+
+IncCh1Squares::
+	ld a, [wCh1SquareCounter]
+	inc a
+	cp CH1_SQUARE_THRESHOLD
+	jr nz, .updateCounter
+	xor a
+	ld [wCh1SquareCounter], a
+	jr .doInc
+.updateCounter:
+	ld [wCh1SquareCounter], a
+	ret
+.doInc:
+	ld hl, pSpriteOAM
+	ld de, 4
+	ld b, 8
+	ld c, 0
+.ch1SquareLoop:
+	ld a, c
+	bit 1, a
+	jr nz, .decEntry
+	inc [hl]
+	jr .nextEntry
+.decEntry:
+	dec [hl]
+.nextEntry:
+	inc c
+	add hl, de
+	dec b
+	jr nz, .ch1SquareLoop
+	ret
+
+DecCh1Squares::
+	ld a, [wCh1SquareDecCounter]
+	inc a
+	cp CH1_SQUARE_THRESHOLD
+	jr nz, .updateCounter
+	xor a
+	ld [wCh1SquareDecCounter], a
+	jr .doDec
+.updateCounter:
+	ld [wCh1SquareDecCounter], a
+	ret
+.doDec:
+	ld hl, pSpriteOAM
+	ld de, 4
+	ld b, 8
+	ld c, 0
+.ch1SquareLoop:
+	ld a, c
+	bit 1, a
+	jr nz, .incEntry
+	ld a, [hl]
+	and a
+	jr z, .nextEntry
+	dec [hl]
+	jr .nextEntry
+.incEntry:
+	inc [hl]
+.nextEntry:
+	inc c
+	add hl, de
+	dec b
+	jr nz, .ch1SquareLoop
+	ret
+
 
 Ch12VBlankHandler::
 	ld a, [wFillTilemapPending]

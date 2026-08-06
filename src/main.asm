@@ -62,6 +62,8 @@ wZoomPhase::        	ds 1    ; CH3 zoom pulse phase (advances each frame)
 wVBlankFunc::       	ds 2    ; Pointer to routine called each VBlank
 wFillTilemapPending::	ds 1  ; Non-zero triggers a full tilemap fill next VBlank
 wRandomSeed::       	ds 1    ; State byte for the Rand8 pseudo-random generator
+	wCh1SquareCounter::	ds 1    ; Calls to IncCh1Squares since the last actual move
+	wCh1SquareDecCounter::	ds 1    ; Calls to DecCh1Squares since the last actual move
 
 SECTION "Header", ROM0[$100]
 
