@@ -31,6 +31,12 @@ hZoomAccHi::    ds 1
 hZoomStepLo::   ds 1
 hZoomStepHi::   ds 1
 
+; OAM DMA must run from HRAM (ROM/WRAM are inaccessible while the transfer is
+; active). Setup copies DMATransferSrc here; the linker allocates this so it
+; never overlaps the other HRAM variables above.
+SECTION "OAM DMA Routine", HRAM
+DMATransfer::   ds 16
+
 SECTION "Variables", WRAM0[$C022]
 wVol:
 	ds 1
@@ -56,6 +62,9 @@ wZoomPhase::        	ds 1    ; CH3 zoom pulse phase (advances each frame)
 wVBlankFunc::       	ds 2    ; Pointer to routine called each VBlank
 wFillTilemapPending::	ds 1  ; Non-zero triggers a full tilemap fill next VBlank
 wRandomSeed::       	ds 1    ; State byte for the Rand8 pseudo-random generator
+	wCh1SquareCounter::	ds 1    ; Calls to IncCh1Squares since the last actual move
+	wCh1SquareDecCounter::	ds 1    ; Calls to DecCh1Squares since the last actual move
+	wScrollDirection::	ds 1    ; CH4 scroll direction, cycles 0=right,1=down,2=left,3=up
 
 SECTION "Header", ROM0[$100]
 
@@ -86,7 +95,9 @@ TimerHandler:
 	jr z, .skipReset
 
 	; handle all input
+	push hl
 	call HandleInput
+	pop hl
 
 	; reset counter if at bpm
 	ld bc, 0
@@ -269,10 +280,20 @@ Setup:
 
 	call LoadSingleTileBackground
 
+	; Install the OAM DMA routine into HRAM; it must execute from there since
+	; ROM/WRAM are inaccessible to the CPU while the DMA transfer is active.
+	ld bc, DMATransferSrcEnd - DMATransferSrc
+	ld de, DMATransferSrc
+	ld hl, DMATransfer
+	call LoadData
+
 	call SetupCh1
 	call SetupCh2
 	call SetupCh3
 	call SetupCh4
+	call SetupCh1Sprites
+	call SetupCh2Sprites
+	call SetupCh3Sprites
 	call UpdateScrollThreshold
 	call UpdateChannelTile        ; set the starting channel's tile from its volume
 

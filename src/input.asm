@@ -104,6 +104,10 @@ HandleInput::
 	ld [wVBlankFunc + 1], a
 	call UpdateScrollThreshold
 	call UpdateChannelTile       ; show the new channel's volume-based tile
+	call SetupCh1Sprites
+	call SetupCh2Sprites
+	xor a
+	ld [wScrollY], a
 
 	; Enable the per-scanline raster-zoom STAT interrupt only on CH3 (index 2)
 	ld a, [wCurrentChannel]
@@ -168,7 +172,10 @@ HandleInput::
 	jr nz, .aNot0
 	
 	call TriggerSweep       ; channel 0 (CH1)
-	jr .endCheck
+	call IncCh1Squares
+	call UpdateCh2Box
+	call UpdateCh3Circles
+	ret
 .aNot0
 	cp 1
 	jr nz, .aNot1
@@ -181,7 +188,17 @@ HandleInput::
 	jr .endCheck
 .aNot2
 	call ToggleNoiseWidth   ; channel 3 (CH4)
+	ld a, [wScrollDirection]
+	inc a
+	cp 4
+	jr nz, .storeScrollDir
+	xor a
+.storeScrollDir:
+	ld [wScrollDirection], a
 
 .endCheck
+	call DecCh1Squares
+	call UpdateCh2Box
+	call UpdateCh3Circles
 	ret
 
