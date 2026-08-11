@@ -3,9 +3,9 @@ INCLUDE "definitions.inc"
 
 SECTION "Graphics", ROM0
 
-SetupSprites::
+SetupCh1Sprites::
 	ld hl, pSpriteOAM
-	ld c, 8
+	ld c, 56
 	ld b, 4
 .ch1SquareLoop:
 	ld a, b
@@ -34,10 +34,195 @@ SetupSprites::
 	xor a
 	ld [hli], a
 	ld a, c
-	add a, 40
+	add a, 16
 	ld c, a
 	dec b
 	jr nz, .ch1SquareLoop
+	ret
+
+SetupCh2Sprites::
+	ld hl, pSpriteOAM + 32
+	ld b, 3 ; loop for 3 rows of 8x16 sprites
+.ch2BoxRowLoop:
+	ld c, 64 ; box x position
+	ld d, 6
+.ch2BoxColLoop:
+	xor a
+	ld [hli], a
+	ld a, c
+	ld [hli], a
+	xor a
+	ld [hli], a          ; tile index is set later via UpdateCh2Box's WRAM variables
+	xor a
+	ld [hli], a
+	ld a, c
+	add a, 8
+	ld c, a
+	dec d
+	jr nz, .ch2BoxColLoop
+	dec b
+	jr nz, .ch2BoxRowLoop
+	ret
+
+; ------------------------------------------------------------------------------
+; Row-major table of the tile index for each of the 18 box cells (3 rows x 6
+; columns). Row 1 columns 3-4 and row 3 columns 3-4 share a tile. UpdateCh2Box
+; walks this table in lockstep with the OAM loop below.
+; ------------------------------------------------------------------------------
+Ch2BoxTileTable::
+	db CH2_R1C1_TILE, CH2_R1C2_TILE, CH2_R1C3C4_TILE, CH2_R1C3C4_TILE, CH2_R1C5_TILE, CH2_R1C6_TILE
+	db CH2_R2C1_TILE, CH2_R2C2_TILE, CH2_R2C3_TILE, CH2_R2C4_TILE, CH2_R2C5_TILE, CH2_R2C6_TILE
+	db CH2_R3C1_TILE, CH2_R3C2_TILE, CH2_R3C3C4_TILE, CH2_R3C3C4_TILE, CH2_R3C5_TILE, CH2_R3C6_TILE
+
+UpdateCh2Box::
+	ld a, [wCurrentChannel]
+	cp 1
+	jp nz, .hideBox
+	ld a, [bJoypadDown]
+	and a, BUTTON_A
+	jp z, .hideBox
+
+	ld hl, pSpriteOAM + 32
+	ld de, Ch2BoxTileTable
+	ld a, 60
+	ld b, 3
+.rowLoop:
+	ld c, 6
+.colLoop:
+	ld [hl], a              ; Y
+	inc hl
+	inc hl                  ; skip X, now at tile byte
+	push af
+
+	ld a, [rNR51]
+	cp %11111101             ; CH2 panned left only (SO1/right bit cleared)
+	jr z, .checkLeftHalf
+	cp %11011111             ; CH2 panned right only (SO2/left bit cleared)
+	jr z, .checkRightHalf
+	jr .overrideTile         ; centered -> every cell is the pan tile
+
+.checkLeftHalf:
+	ld a, c
+	cp 4
+	jr c, .useDefaultTile    ; c=3,2,1 -> columns 4-6, not the active half
+	jr .overrideTile         ; c=6,5,4 -> columns 1-3, the active half
+
+.checkRightHalf:
+	ld a, c
+	cp 4
+	jr c, .overrideTile      ; c=3,2,1 -> columns 4-6, the active half
+.useDefaultTile:
+	ld a, [de]
+	inc de
+	jr .gotTile
+.overrideTile:
+	ld a, CH2_BOX_PAN_TILE
+	inc de                   ; keep the table pointer advancing in lockstep
+.gotTile:
+	ld [hl], a               ; write tile value into OAM
+
+	pop af
+	inc hl
+	inc hl                  ; skip attr, now at next entry's Y byte
+	dec c
+	jr nz, .colLoop
+	add a, 16
+	dec b
+	jr nz, .rowLoop
+	ret
+
+.hideBox:
+	xor a
+	ld hl, pSpriteOAM + 32
+	ld de, 4
+	ld b, 18
+.hideLoop:
+	ld [hl], a
+	add hl, de
+	dec b
+	jr nz, .hideLoop
+	ret
+
+SetupCh3Sprites::
+	ld hl, pSpriteOAM + 104
+	ld c, 8
+	ld b, 4
+.ch3CircleLoop:
+	xor a
+	ld [hli], a
+	ld a, c
+	ld [hli], a
+	ld a, 20
+	ld [hli], a
+	xor a
+	ld [hli], a
+	xor a
+	ld [hli], a
+	ld a, c
+	add a, 8
+	ld [hli], a
+	ld a, 22
+	ld [hli], a
+	xor a
+	ld [hli], a
+	ld a, c
+	add a, 40
+	ld c, a
+	dec b
+	jr nz, .ch3CircleLoop
+	ret
+
+ShowCircles::
+	ld hl, pSpriteOAM + 104
+	ld b, 4
+.circleLoop:
+	call Rand8
+	and %01111111
+	add 16
+	ld c, a
+	call Rand8
+	and %01111111
+	add 8
+	ld d, a
+
+	ld a, c
+	ld [hli], a
+	ld a, d
+	ld [hli], a
+	inc hl
+	inc hl
+	ld a, c
+	ld [hli], a
+	ld a, d
+	add 8
+	ld [hli], a
+	inc hl
+	inc hl
+
+	dec b
+	jr nz, .circleLoop
+	ret
+
+UpdateCh3Circles::
+	ld a, [wCurrentChannel]
+	cp 2
+	jr nz, .hideCircles
+	ld a, [bJoypadDown]
+	and a, BUTTON_A
+	jr z, .hideCircles
+	call ShowCircles
+	ret
+
+.hideCircles:
+	xor a
+	ld hl, pSpriteOAM + 104
+	ld de, 4
+	ld b, 8
+.hideLoop:
+	ld [hl], a
+	add hl, de
+	dec b
+	jr nz, .hideLoop
 	ret
 
 IncCh1Squares::
@@ -63,6 +248,9 @@ IncCh1Squares::
 	inc [hl]
 	jr .nextEntry
 .decEntry:
+	ld a, [hl]
+	and a
+	jr z, .nextEntry
 	dec [hl]
 .nextEntry:
 	inc c
@@ -97,6 +285,9 @@ DecCh1Squares::
 	dec [hl]
 	jr .nextEntry
 .incEntry:
+	ld a, [hl]
+	cp 160
+	jr nc, .nextEntry
 	inc [hl]
 .nextEntry:
 	inc c
@@ -124,7 +315,7 @@ Ch12VBlankHandler::
 .doFill:
 	ld e, a
 	call FillTilemap
-	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ8 | LCDCF_BG8000
+	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
 	ld [rLCDC], a
 .skipFill
 
@@ -204,9 +395,7 @@ Ch3VBlankHandler::
 	ld a, [wCh3TileIndex]
 	ld e, a
 	call FillTilemap
-	; OBJ off for CH3 so Mode 3 stays short and the per-scanline zoom handler
-	; has a comfortable HBlank window to write rSCY.
-	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_BG8000
+	ld a, LCDCF_ON | LCDCF_BGON | LCDCF_OBJON | LCDCF_OBJ16 | LCDCF_BG8000
 	ld [rLCDC], a
 .skipFill
 
@@ -332,7 +521,7 @@ Ch4VBlankHandler::
 	ld [rLCDC], a
 .skipFill
 
-	; --- horizontal scroll (gated by threshold); vertical locked to top ---
+	; --- scroll direction cycles right/down/left/up (gated by threshold) ---
 	ld a, [wScrollCounter]
 	inc a
 	ld b, a
@@ -342,19 +531,42 @@ Ch4VBlankHandler::
 
 	xor a
 	ld [wScrollCounter], a
+	ld a, [wScrollDirection]
+	cp 0
+	jr z, .moveRight
+	cp 1
+	jr z, .moveDown
+	cp 2
+	jr z, .moveLeft
+	ld a, [wScrollY]
+	dec a
+	ld [wScrollY], a
+	jr .writeScroll
+.moveRight:
 	ld a, [wScrollX]
 	inc a
 	ld [wScrollX], a
-	ld [rSCX], a
-	jr .lockY
+	jr .writeScroll
+.moveDown:
+	ld a, [wScrollY]
+	inc a
+	ld [wScrollY], a
+	jr .writeScroll
+.moveLeft:
+	ld a, [wScrollX]
+	dec a
+	ld [wScrollX], a
+	jr .writeScroll
 
 .updateCounter:
 	ld a, b
 	ld [wScrollCounter], a
 
-.lockY:
-	xor a
-	ld [rSCY], a            ; keep the view flat (clears leftover SCY from CH3 zoom)
+.writeScroll:
+	ld a, [wScrollX]
+	ld [rSCX], a
+	ld a, [wScrollY]
+	ld [rSCY], a
 	call DMATransfer
 	reti
 
@@ -546,21 +758,50 @@ Tileset::
     db $FF,$00,$FF,$00,$FF,$00,$00,$00,$00,$00,$00,$00,$FF,$00,$FF,$00
     db $81,$81,$42,$42,$24,$24,$18,$18,$18,$18,$24,$24,$42,$42,$81,$81
     db $00,$00,$00,$00,$24,$24,$00,$00,$00,$00,$24,$24,$00,$00,$00,$00
-    db $03,$02,$02,$05,$0E,$0A,$08,$14,$38,$28,$20,$50,$E0,$A0,$80,$40
+    db $83,$82,$02,$05,$0E,$0A,$08,$14,$38,$28,$20,$50,$E0,$A0,$81,$40
     db $FF,$00,$FF,$00,$FF,$00,$00,$00,$00,$00,$00,$00,$FF,$00,$FF,$00
     db $99,$99,$42,$42,$24,$24,$99,$99,$99,$99,$24,$24,$42,$42,$99,$99
     db $10,$10,$42,$42,$00,$00,$10,$10,$80,$80,$02,$02,$20,$20,$04,$04
     db $C7,$82,$8A,$05,$1F,$0A,$2A,$14,$7C,$28,$A8,$50,$F1,$A0,$A2,$41
     db $00,$00,$FF,$00,$00,$FF,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$00
     db $F9,$99,$43,$42,$25,$24,$99,$99,$99,$99,$A4,$24,$C2,$42,$9F,$99
-    db $92,$92,$55,$55,$E2,$E2,$5D,$5D,$32,$32,$59,$59,$AA,$AA,$67,$67
-    db $C7,$92,$CA,$65,$3F,$6A,$2A,$94,$7C,$29,$AC,$56,$F3,$A6,$A2,$49
+    db $8A,$8A,$55,$55,$AA,$AA,$45,$45,$2A,$2A,$51,$51,$AA,$AA,$45,$45
+    db $E7,$A2,$CA,$45,$9F,$8A,$2A,$14,$7C,$28,$A9,$51,$F3,$A2,$A6,$45
     db $FF,$00,$FF,$FF,$00,$FF,$00,$00,$FF,$FF,$00,$00,$FF,$FF,$FF,$00
     db $F9,$9F,$43,$FE,$25,$FE,$99,$FF,$99,$FF,$A4,$7F,$C2,$7F,$9F,$F9
+    db $D6,$12,$5D,$5D,$EA,$E2,$5F,$5D,$F2,$B2,$5B,$59,$AA,$AA,$77,$67
     db $3F,$3F,$60,$60,$C0,$C0,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
-    db $FC,$FC,$06,$06,$03,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
     db $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$C0,$C0,$60,$60,$3F,$3F
+    db $FC,$FC,$06,$06,$03,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
     db $01,$01,$01,$01,$01,$01,$01,$01,$01,$01,$03,$03,$06,$06,$FC,$FC
-    db $7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E,$7E
-    db $3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C,$3C
     db $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+    db $FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF,$FF
+    db $00,$00,$00,$00,$3F,$3F,$20,$20,$20,$20,$20,$20,$20,$20,$21,$21
+    db $21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21
+    db $21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21
+    db $21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21
+    db $21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21,$21
+    db $21,$21,$20,$20,$20,$20,$20,$20,$20,$20,$3F,$3F,$00,$00,$00,$00
+    db $00,$00,$00,$00,$FC,$FC,$04,$04,$04,$04,$04,$04,$04,$04,$84,$84
+    db $84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84
+    db $84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84
+    db $84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84
+    db $84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84,$84
+    db $84,$84,$04,$04,$04,$04,$04,$04,$04,$04,$FC,$FC,$00,$00,$00,$00
+    db $00,$00,$00,$00,$FF,$FF,$00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF
+    db $00,$00,$00,$00,$00,$00,$1F,$1F,$10,$10,$10,$10,$10,$10,$11,$11
+    db $11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11
+    db $11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11,$11
+    db $11,$11,$10,$10,$10,$10,$10,$10,$1F,$1F,$00,$00,$00,$00,$00,$00
+    db $FF,$FF,$00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$00,$00,$00,$00
+    db $00,$00,$00,$00,$FF,$FF,$00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF
+    db $00,$00,$00,$00,$00,$00,$FF,$FF,$00,$00,$00,$00,$00,$00,$FF,$FF
+    db $00,$00,$00,$00,$FF,$FF,$00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF
+    db $00,$00,$00,$00,$00,$00,$F8,$F8,$08,$08,$08,$08,$08,$08,$88,$88
+    db $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+    db $88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88,$88
+    db $88,$88,$08,$08,$08,$08,$08,$08,$F8,$F8,$00,$00,$00,$00,$00,$00
+    db $FF,$FF,$00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$00,$00,$00,$00
+    db $FF,$FF,$00,$00,$00,$00,$00,$00,$FF,$FF,$00,$00,$00,$00,$00,$00
+    db $FF,$FF,$00,$00,$00,$00,$00,$00,$00,$00,$FF,$FF,$00,$00,$00,$00
+    db $00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00,$00

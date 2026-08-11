@@ -64,6 +64,7 @@ wFillTilemapPending::	ds 1  ; Non-zero triggers a full tilemap fill next VBlank
 wRandomSeed::       	ds 1    ; State byte for the Rand8 pseudo-random generator
 	wCh1SquareCounter::	ds 1    ; Calls to IncCh1Squares since the last actual move
 	wCh1SquareDecCounter::	ds 1    ; Calls to DecCh1Squares since the last actual move
+	wScrollDirection::	ds 1    ; CH4 scroll direction, cycles 0=right,1=down,2=left,3=up
 
 SECTION "Header", ROM0[$100]
 
@@ -94,7 +95,9 @@ TimerHandler:
 	jr z, .skipReset
 
 	; handle all input
+	push hl
 	call HandleInput
+	pop hl
 
 	; reset counter if at bpm
 	ld bc, 0
@@ -288,7 +291,9 @@ Setup:
 	call SetupCh2
 	call SetupCh3
 	call SetupCh4
-	call SetupSprites
+	call SetupCh1Sprites
+	call SetupCh2Sprites
+	call SetupCh3Sprites
 	call UpdateScrollThreshold
 	call UpdateChannelTile        ; set the starting channel's tile from its volume
 

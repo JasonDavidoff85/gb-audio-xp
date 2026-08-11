@@ -2,7 +2,7 @@
 ; Constants
 ; ------------------------------------------------------------------------------
 ; Number of bytes in the tileset for the game.
-DEF len_Tileset EQU 416
+DEF len_Tileset EQU 864
 
 ; Number of bytes in the level's tilemap.
 DEF len_LevelTilemap EQU 384
@@ -100,3 +100,31 @@ DEF BUTTON_SELECT EQU 1 << 6
 
 ; Button mask for the start button.
 DEF BUTTON_START  EQU 1 << 7
+
+; ------------------------------------------------------------------------------
+; CH2 A-hold box tile indexes (3 rows x 6 columns). Row 1 columns 3-4 and row 3
+; columns 3-4 share a single tile. Fill in the actual tile indexes below.
+; ------------------------------------------------------------------------------
+DEF CH2_R1C1_TILE   EQU 26
+DEF CH2_R1C2_TILE   EQU 38
+DEF CH2_R1C3C4_TILE EQU 44
+DEF CH2_R1C5_TILE   EQU 46
+DEF CH2_R1C6_TILE   EQU 32
+DEF CH2_R2C1_TILE   EQU 28
+DEF CH2_R2C2_TILE   EQU 40
+DEF CH2_R2C3_TILE   EQU 54
+DEF CH2_R2C4_TILE   EQU 54
+DEF CH2_R2C5_TILE   EQU 48
+DEF CH2_R2C6_TILE   EQU 34
+DEF CH2_R3C1_TILE   EQU 30
+DEF CH2_R3C2_TILE   EQU 42
+DEF CH2_R3C3C4_TILE EQU 52
+DEF CH2_R3C5_TILE   EQU 50
+DEF CH2_R3C6_TILE   EQU 36
+
+; ------------------------------------------------------------------------------
+; CH2 A-hold box: panning override. When CH2 is panned left, columns 1-3 all
+; switch to this tile (columns 4-6 stay on the default tiles above). When
+; panned right, columns 4-6 switch to it instead (columns 1-3 stay default).
+; ------------------------------------------------------------------------------
+DEF CH2_BOX_PAN_TILE EQU 24
