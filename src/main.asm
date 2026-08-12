@@ -38,13 +38,13 @@ SECTION "OAM DMA Routine", HRAM
 DMATransfer::   ds 16
 
 SECTION "Variables", WRAM0[$C022]
-wVol:
-	ds 1
+wVol:					ds 1
 wChannelVolumes:    	ds 4    ; Current volume for each channel
 wCurrentChannel::   	ds 1    ; Currently active/selected channel (0-3)
 wChannel1Freq::     	ds 2    ; Channel 1 frequency (11 bits, stored in 2 bytes)
 wChannel2Freq::     	ds 2    ; Channel 2 frequency (11 bits, stored in 2 bytes)
 wChannel3Freq::     	ds 2    ; Channel 3 frequency (11 bits, stored in 2 bytes)
+wSweepPace::		 	ds 1    ; Sweep pace for channel 1, set randomly
 wScrollX::          	ds 1    ; Horizontal scroll position
 wScrollY::          	ds 1    ; Vertical scroll position
 wScrollCounter::    	ds 1    ; Scroll counter for ch3/ch4
@@ -62,9 +62,9 @@ wZoomPhase::        	ds 1    ; CH3 zoom pulse phase (advances each frame)
 wVBlankFunc::       	ds 2    ; Pointer to routine called each VBlank
 wFillTilemapPending::	ds 1  ; Non-zero triggers a full tilemap fill next VBlank
 wRandomSeed::       	ds 1    ; State byte for the Rand8 pseudo-random generator
-	wCh1SquareCounter::	ds 1    ; Calls to IncCh1Squares since the last actual move
-	wCh1SquareDecCounter::	ds 1    ; Calls to DecCh1Squares since the last actual move
-	wScrollDirection::	ds 1    ; CH4 scroll direction, cycles 0=right,1=down,2=left,3=up
+wCh1SquareCounter::		ds 1    ; Calls to IncCh1Squares since the last actual move
+wCh1SquareDecCounter::	ds 1    ; Calls to DecCh1Squares since the last actual move
+wScrollDirection::		ds 1    ; CH4 scroll direction, cycles 0=right,1=down,2=left,3=up
 
 SECTION "Header", ROM0[$100]
 

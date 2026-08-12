@@ -16,8 +16,13 @@ SetupCh1::
 	ld a, %10000000 ; change wave size as param? or length timer?
 	ld [rNR11], a
 
+.doRandom
+	call Rand8
+	and %00000111
+	cp 0
+	jr z, .doRandom
+	ld [wSweepPace], a ; set random sweep pace
 	; Set the vol envolope.
-	; %01110011
 	ld a, %11001000
 	ld [rNR12], a
 
@@ -575,17 +580,14 @@ CycleWaveDuty::
 ; Trigger a sweep for channel 1 (NR10 bits 6-4)
 TriggerSweep::
 	ld a, [rNR12]
-	and %00000111       ; isolate bits 2-0
-	cp %00000001        ; check if 001 (make this a variable and have it be random)
-	jr z, .setZero
-	cp %00000000        ; check if 000
-	jr z, .setMax
-	jr .done            ; neither 000 nor 001, do nothing
-.setZero
-	ld a, %00000000
+	and %00000111
+	cp 0
+	jr z, .setValue ; if zero set to variable
+	ld a, 0
 	jr .writeback
-.setMax
-	ld a, %00000001
+.setValue
+	ld a, [wSweepPace]
+	and %00000111
 .writeback
 	ld b, a
 	ld a, [rNR12]

@@ -1,4 +1,4 @@
-# GB-Noise 👾
+# NOISE BOY 👾
 
 4 channel noise and visual synth for gameboy.
 
@@ -11,8 +11,8 @@ Writen in assembly for RGBDS
 - Dpad up and down control volume -- ~~milestore 2~~ **DONE**
 - Dpad left and right control pitch -- ~~milestore 3~~ **DONE**
 - A and B button is special function -- ~~milestone 4~~ **DONE**
-- Different graphics to represent each channel and volume -- milestone 5
-- graphical embelishments to represent special functions -- milestone 6
+- Different graphics to represent each channel and volume -- ~~milestone 5~~ **DONE**
+- graphical embelishments to represent special functions -- ~~milestone 6 ~~ **DONE**
 
 randomness:
 things to set random:

@@ -260,6 +260,10 @@ IncCh1Squares::
 	ret
 
 DecCh1Squares::
+	ld a, [rNR12]
+	and %00000111
+	cp 0
+	ret nz
 	ld a, [wCh1SquareDecCounter]
 	inc a
 	cp CH1_SQUARE_THRESHOLD
