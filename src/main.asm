@@ -129,9 +129,9 @@ Main:
 	ld [rP1], a
 
 	call PlayCH1
-	; call PlayCH2
-	; call PlayCH3
-	; call PlayCH4
+	call PlayCH2
+	call PlayCH3
+	call PlayCH4
 
 Loop:
 	jr Loop

@@ -429,6 +429,21 @@ Ch3VBlankHandler::
 	ld [wScrollCounter], a
 
 .zoomSetup:
+	; If CH3 is muted (NR32 volume bits 00), freeze the zoom: no per-scanline
+	; step, and SCY just tracks wScrollY directly with no zoom offset.
+	ld a, [rNR32]
+	and %01100000
+	jr nz, .zoomActive
+	xor a
+	ldh [hZoomStepLo], a
+	ldh [hZoomStepHi], a
+	ldh [hZoomAccLo], a
+	ld a, [wScrollY]
+	ldh [hZoomAccHi], a
+	ld [rSCY], a
+	jr .zoomDone
+
+.zoomActive:
 	; Advance the pulse phase by a speed derived from CH3's frequency: the top
 	; 3 period bits (0-7) map to a step of 1,3,..,15, so higher pitch pulses faster.
 	ld a, [wChannel3Freq + 1]
@@ -481,6 +496,7 @@ Ch3VBlankHandler::
 	ldh [hZoomAccHi], a
 	ld [rSCY], a
 
+.zoomDone:
 	call DMATransfer
 	reti
 
@@ -772,8 +788,8 @@ Tileset::
     db $8A,$8A,$55,$55,$AA,$AA,$45,$45,$2A,$2A,$51,$51,$AA,$AA,$45,$45
     db $E7,$A2,$CA,$45,$9F,$8A,$2A,$14,$7C,$28,$A9,$51,$F3,$A2,$A6,$45
     db $FF,$00,$FF,$FF,$00,$FF,$00,$00,$FF,$FF,$00,$00,$FF,$FF,$FF,$00
-    db $F9,$9F,$43,$FE,$25,$FE,$99,$FF,$99,$FF,$A4,$7F,$C2,$7F,$9F,$F9
-    db $D6,$12,$5D,$5D,$EA,$E2,$5F,$5D,$F2,$B2,$5B,$59,$AA,$AA,$77,$67
+    db $99,$99,$5A,$66,$24,$7E,$DB,$99,$DB,$99,$24,$7E,$5A,$66,$99,$99
+    db $D6,$12,$5D,$5D,$EA,$E2,$5F,$5D,$F2,$B2,$5F,$55,$AA,$AA,$77,$67
     db $3F,$3F,$60,$60,$C0,$C0,$80,$80,$80,$80,$80,$80,$80,$80,$80,$80
     db $80,$80,$80,$80,$80,$80,$80,$80,$80,$80,$C0,$C0,$60,$60,$3F,$3F
     db $FC,$FC,$06,$06,$03,$03,$01,$01,$01,$01,$01,$01,$01,$01,$01,$01
