@@ -53,7 +53,7 @@ HandleInput::
 	and a, BUTTON_LEFT
 	jr z, .checkStart
 
-	; Check if current channel is channel 4`
+	; Check if current channel is channel 4
 	ld a, [wCurrentChannel]
 	cp 3
 	jr nz, .normalDecFreq

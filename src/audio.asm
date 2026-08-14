@@ -9,7 +9,7 @@ SetupCh1::
 	ld a, %00000111 ; turn on off as param?
 	ld [rNR10], a
 
-	; TODO random sweep direction, individual step and sweep pace
+	; TODO random sweep direction and individual step
 
 	; Set wave duty.
 	; %01000010 $80
@@ -39,8 +39,6 @@ SetupCh1::
 	ret
 
 SetupCh2::
-	; TODO random sweep direction, individual step and sweep pace
-
 	; Set wave duty.
 	; %01000010
 	ld a, %10000000
@@ -142,7 +140,7 @@ PlayCH4::
 	ret
 
 PlayCurrentChannel::
-	ld a, [wCurrentChannel] ; Assume wCurrentChannel holds 1-4
+	ld a, [wCurrentChannel] ; Assume wCurrentChannel holds 0-3
 	cp 0
 	jr z, .ch1
 	cp 1
@@ -317,24 +315,6 @@ DecChannelVol::
 	call PlayCurrentChannel
 	call UpdateChannelTile
 .done
-	ret
-
-; Assumes GetChannelPeriodLowReg returns DE pointing to the desired period (frequency LSB) register
-IncChannelPeriod::
-	call GetChannelPeriodLowReg
-	ld a, [de]
-	inc a
-	ld [de], a
-	call PlayCurrentChannel
-	ret
-
-; Assumes GetChannelPeriodLowReg returns DE pointing to the desired period (frequency LSB) register
-DecChannelPeriod::
-	call GetChannelPeriodLowReg
-	ld a, [de]
-	dec a
-	ld [de], a
-	call PlayCurrentChannel
 	ret
 
 ; Increment 11-bit frequency stored in RAM variables for ch 1-3
@@ -577,7 +557,8 @@ CycleWaveDuty::
 	ld [rNR11], a
 	ret
 
-; Trigger a sweep for channel 1 (NR10 bits 6-4)
+; Toggle channel 1's envelope pace (NR12 bits 2-0): clear it if set, or
+; restore the random pace from wSweepPace if currently clear.
 TriggerSweep::
 	ld a, [rNR12]
 	and %00000111

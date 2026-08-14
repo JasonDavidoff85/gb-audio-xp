@@ -368,23 +368,6 @@ Ch12VBlankHandler::
 	ld [rSCY], a
 
 .continueVBlank:
-
-	; load counter and increment
-	ldh a, [hBPMCounter + 1]
-
-	; check bit (bpm)
-	bit 5, a
-
-	; if at bpm play note and change pallet
-	jr z, .skipCpl
-
-	; get pallet and invert and reset (flashing effect)
-	; ld a, [rBGP]
-	; cpl
-	; ld [rBGP], a
-
-	.skipCpl
-
 	call DMATransfer
 	reti
 
@@ -728,7 +711,7 @@ UpdateChannelTile::
 ; `func FillTilemap()`
 ;
 ; Fills the entire 32x32 BG tilemap ($9800-$9BFF) with the tile index
-; stored in wTileIndex.
+; passed in register E.
 ; ------------------------------------------------------------------------------
 FillTilemap::
 	ld hl, $9800

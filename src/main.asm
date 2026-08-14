@@ -38,8 +38,6 @@ SECTION "OAM DMA Routine", HRAM
 DMATransfer::   ds 16
 
 SECTION "Variables", WRAM0[$C022]
-wVol:					ds 1
-wChannelVolumes:    	ds 4    ; Current volume for each channel
 wCurrentChannel::   	ds 1    ; Currently active/selected channel (0-3)
 wChannel1Freq::     	ds 2    ; Channel 1 frequency (11 bits, stored in 2 bytes)
 wChannel2Freq::     	ds 2    ; Channel 2 frequency (11 bits, stored in 2 bytes)
@@ -49,7 +47,6 @@ wScrollX::          	ds 1    ; Horizontal scroll position
 wScrollY::          	ds 1    ; Vertical scroll position
 wScrollCounter::    	ds 1    ; Scroll counter for ch3/ch4
 wScrollThreshold::  	ds 1    ; Scroll frames-per-step for ch3/ch4
-wTileIndex::        	ds 1    ; Tile index used by SetChNTilemap routines
 wCh1TileIndex::     	ds 1    ; Tile index for channel 1 display
 wCh2TileIndex::     	ds 1    ; Tile index for channel 2 display
 wCh3TileIndex:: 		ds 1	; Tile index for channel 3 display
@@ -275,9 +272,6 @@ Setup:
 	xor a, a ; This is equivalent to `ld a, 0`!
 	ldh [rIF], a
 
-	; set b to 0 to use as bpm counter
-	;ld bc, $0000
-
 	call LoadSingleTileBackground
 
 	; Install the OAM DMA routine into HRAM; it must execute from there since
@@ -359,42 +353,6 @@ LoadSingleTileBackground:
 	or a, c
 	jr nz, .fill_loop
 	ret
-
-; ------------------------------------------------------------------------------
-; `func SetCh1Tilemap()`
-;
-; Fills the top-left 16x16 quadrant of the BG tilemap ($9800) with the
-; tile index stored in wTileIndex.
-; ------------------------------------------------------------------------------
-SetCh1Tilemap:
-    ret
-
-; ------------------------------------------------------------------------------
-; `func SetCh2Tilemap()`
-;
-; Fills the top-right 16x16 quadrant of the BG tilemap ($9800) with the
-; tile index stored in wTileIndex.
-; ------------------------------------------------------------------------------
-SetCh2Tilemap:
-    ret
-
-; ------------------------------------------------------------------------------
-; `func SetCh3Tilemap()`
-;
-; Fills the bottom-left 16x16 quadrant of the BG tilemap ($9800) with the
-; tile index stored in wTileIndex.
-; ------------------------------------------------------------------------------
-SetCh3Tilemap:
-    ret
-
-; ------------------------------------------------------------------------------
-; `func SetCh4Tilemap()`
-;
-; Fills the bottom-right 16x16 quadrant of the BG tilemap ($9800) with the
-; tile index stored in wTileIndex.
-; ------------------------------------------------------------------------------
-SetCh4Tilemap:
-    ret
 
 ; ------------------------------------------------------------------------------
 ; `func LoadData(bc, de, hl)`
