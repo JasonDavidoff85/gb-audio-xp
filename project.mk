@@ -14,7 +14,7 @@ VERSION := 0
 GAMEID := NOIZ
 
 # Game title, up to 11 ASCII chars.
-TITLE := GB-Noise
+TITLE := NOISE-BOY
 
 # New licensee, 2 ASCII chars.
 # Homebrew games FTW!.
@@ -36,7 +36,7 @@ MBC := 0x00
 SRAMSIZE := 0x00
 
 # ROM name.
-ROMNAME := gb-noise
+ROMNAME := Noise-Boy
 ROMEXT  := gb
 
 
