@@ -78,9 +78,9 @@ SetupCh3::
 	ld a, %11010110
 	ld [rNR33], a
 	; Initialize frequency variable (both bytes)
-	ld [wChannel3Freq], a       ; Store low byte
-	ld a, %00000000             ; clear high byte
-	ld [wChannel3Freq + 1], a   ; Store high byte
+	ld [wChannel3Freq], a
+	ld a, %00000000
+	ld [wChannel3Freq + 1], a
 
 	ret
 
@@ -181,10 +181,10 @@ IncChannelVol::
 	swap a
 	and %11110000
 
-	ld b, a           ; store new upper 4 bits in b
+	ld b, a
 	ld a, [de]
-	and %00001111     ; get lower 4 bits
-	or b              ; combine with new upper 4 bits
+	and %00001111
+	or b
 	ld [de], a
 	call PlayCurrentChannel
 	call UpdateChannelTile
@@ -302,15 +302,15 @@ DecChannelVol::
 	cp 0
 	jr z, .done
 	
-	dec a ; Decrement
+	dec a
 
-	swap a ; re assign
+	swap a
 	and %11110000
 
-	ld b, a           ; store new upper 4 bits in b
+	ld b, a
 	ld a, [de]
-	and %00001111     ; get lower 4 bits
-	or b              ; combine with new upper 4 bits
+	and %00001111
+	or b
 	ld [de], a
 	call PlayCurrentChannel
 	call UpdateChannelTile
@@ -326,10 +326,10 @@ IncChannelFreq11Bit::
 	call GetChannelFreqVar      ; HL points to wChannelxFreq
 	
 	; Load current 16-bit frequency value
-	ld a, [hli]                 ; Load low byte, increment HL
-	ld b, [hl]                  ; Load high byte
-	ld l, a                     ; Put low byte back in L
-	ld h, b                     ; Put high byte in H
+	ld a, [hli]
+	ld b, [hl]
+	ld l, a
+	ld h, b
 	
 	; Increment the frequency
 	ld de, 16
@@ -348,12 +348,12 @@ IncChannelFreq11Bit::
 .storeFreq:
 	; Store updated frequency back to RAM
 	; Save updated frequency value before calling GetChannelFreqVar
-	ld d, l                     ; Store low byte in D
-	ld e, h                     ; Store high byte in E
-	call GetChannelFreqVar      ; HL points to wChannelxFreq again
-	ld [hl], d                  ; Store low byte
+	ld d, l
+	ld e, h
+	call GetChannelFreqVar
+	ld [hl], d
 	inc hl
-	ld [hl], e                  ; Store high byte
+	ld [hl], e
 
 	; Update hardware registers from RAM value
 	call UpdateChannelFreqRegisters
@@ -364,9 +364,9 @@ IncChannelFreq11Bit::
 .overflow:
 	; Cap at max frequency ($07EF: NRx3=$EF, NRx4 low bits=%111)
 	call GetChannelFreqVar
-	ld [hl], $EF                ; Store low byte (max = $EF)
+	ld [hl], $EF
 	inc hl
-	ld [hl], $07                ; Store high byte (max = $07)
+	ld [hl], $07
 
 	; Update hardware registers
 	call UpdateChannelFreqRegisters
@@ -383,33 +383,32 @@ DecChannelFreq11Bit::
 	call GetChannelFreqVar      ; HL points to wChannelxFreq
 	
 	; Load current 16-bit frequency value
-	ld a, [hli]                 ; Load low byte, increment HL
-	ld b, [hl]                  ; Load high byte
-	ld l, a                     ; Put low byte back in L
-	ld h, b                     ; Put high byte in H
+	ld a, [hli]
+	ld b, [hl]
+	ld l, a
+	ld h, b
 	
 	; Check for underflow before decrementing
-	ld de, 16                   ; Changed back to 16 from 1
-	ld a, l                     ; Get low byte
+	ld de, 16
+	ld a, l
 	sub e                       ; Subtract 16 from low byte
-	ld c, a                     ; Save result in C
-	ld a, h                     ; Get high byte
-	sbc 0                       ; Subtract borrow from high byte
-	jr c, .underflow            ; If carry set, we have underflow
+	ld c, a
+	ld a, h
+	sbc 0
+	jr c, .underflow
 	
 	; No underflow, store decremented value
-	ld h, a                     ; High byte result
-	ld l, c                     ; Low byte result
+	ld h, a
+	ld l, c
 	
 	; Store updated frequency back to RAM
-	ld d, l                     ; Store low byte in D
-	ld e, h                     ; Store high byte in E
+	ld d, l
+	ld e, h
 	call GetChannelFreqVar      ; HL points to wChannelxFreq again
-	ld [hl], d                  ; Store low byte
+	ld [hl], d
 	inc hl
-	ld [hl], e                  ; Store high byte
+	ld [hl], e
 	
-	; Update hardware registers from RAM value
 	call UpdateChannelFreqRegisters
 	call UpdateScrollThreshold
 	pop hl
@@ -417,15 +416,14 @@ DecChannelFreq11Bit::
 
 .underflow:
 	; Handle underflow - stay at minimum, don't apply decrement
-	ld hl, $0000                ; Set to min value (0)
+	ld hl, $0000
 
 	; Store min value to RAM
 	call GetChannelFreqVar
-	ld [hl], $00                ; Store low byte (min)
+	ld [hl], $00
 	inc hl
-	ld [hl], $00                ; Store high byte (min)
+	ld [hl], $00
 
-	; Update hardware registers
 	call UpdateChannelFreqRegisters
 	call UpdateScrollThreshold
 	pop hl
@@ -436,25 +434,25 @@ DecChannelFreq11Bit::
 ; and GetChannelPeriodLowReg/GetChannelTriggerReg work as before
 UpdateChannelFreqRegisters::
 	; Get frequency value from RAM
-	call GetChannelFreqVar      ; HL points to wChannelxFreq
-	ld a, [hli]                 ; Load low byte
-	ld b, [hl]                  ; Load high byte into B
+	call GetChannelFreqVar
+	ld a, [hli]
+	ld b, [hl]
 	
 	; Write low 8 bits to NRx3
 	push af
 	call GetChannelPeriodLowReg ; DE points to NRx3
 	pop af
-	ld [de], a                  ; Write low byte
+	ld [de], a
 	
 	; Write high 3 bits to NRx4 (preserving other bits, but force highest bit to 0)
-	call GetChannelTriggerReg   ; DE points to NRx4
-	ld a, [de]                  ; Get current NRx4 value
-	and %01111000               ; Clear frequency bits and highest bit (bit 7)
-	ld c, a                     ; Store non-frequency bits with bit 7 cleared
-	ld a, b                     ; Get high byte from RAM
-	and %00000111               ; Mask to only 3 bits
-	or c                        ; Combine with preserved bits, bit 7 is 0
-	ld [de], a                  ; Write back to NRx4
+	call GetChannelTriggerReg
+	ld a, [de]
+	and %01111000
+	ld c, a
+	ld a, b
+	and %00000111
+	or c
+	ld [de], a
 	ret
 
 ; Increment Channel 4 frequency (NR43 bits 4-7)
@@ -473,11 +471,11 @@ IncChannel4Freq::
 	swap a
 	and %11110000
 
-	ld b, a  ; store new upper 4 bits in b
+	ld b, a
 	ld a, [rNR43]
 	and %00001111
 	or b
-	ld [rNR43], a ; push back
+	ld [rNR43], a
 	call PlayCurrentChannel
 	call UpdateScrollThreshold  ; keep scroll speed matched to the new pitch
 .done
@@ -498,7 +496,7 @@ DecChannel4Freq::
 	swap a
 	and %11110000
 
-	ld b, a ; store new upper 4 bits in b
+	ld b, a
 	ld a, [rNR43]
 	and %00001111
 	or b
@@ -572,7 +570,7 @@ TriggerSweep::
 .writeback
 	ld b, a
 	ld a, [rNR12]
-	and %11111000       ; clear bits 2-0
+	and %11111000
 	or b
 	ld [rNR12], a
 .done
@@ -611,7 +609,7 @@ WriteRandomWaveByte::
 ; without a trigger, so CH3 is not retriggered (avoids wave-RAM corruption).
 RandomizeCh3Freq::
 	call Rand8
-	ld [rNR33], a           ; CH3 frequency LSB
+	ld [rNR33], a
 	ld [wChannel3Freq], a   ; keep the RAM copy of the frequency in sync
 
 	; Randomize the high 3 bits of the 11-bit frequency (NR34 bits 2-0)
@@ -635,7 +633,7 @@ Rand8::
 .shift
 	srl a               ; shift right; old bit 0 -> carry
 	jr nc, .store
-	xor %10111000       ; tap mask $B8 for a maximal-length 8-bit LFSR
+	xor %10111000
 .store
 	ld [wRandomSeed], a
 	ret
@@ -650,12 +648,12 @@ ToggleNoiseWidth::
 ; Increment the low 3 bits of NR43 (CH4 clock divisor), wrapping 111 -> 000.
 CycleNoiseDivisor::
 	ld a, [rNR43]
-	and %00000111           ; isolate bits 2-0
+	and %00000111
 	inc a
 	and %00000111           ; wrap: 111+1 -> 000
 	ld b, a
 	ld a, [rNR43]
-	and %11111000           ; clear bits 2-0
+	and %11111000
 	or b                    ; set new divisor bits
 	ld [rNR43], a
 	ret

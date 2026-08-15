@@ -386,7 +386,6 @@ Ch3VBlankHandler::
 	ld [rLCDC], a
 .skipFill
 
-	; --- horizontal scroll (gated by threshold); zoom owns the Y axis ---
 	ld a, [wScrollCounter]
 	inc a
 	ld b, a
@@ -524,7 +523,6 @@ Ch4VBlankHandler::
 	ld [rLCDC], a
 .skipFill
 
-	; --- scroll direction cycles right/down/left/up (gated by threshold) ---
 	ld a, [wScrollCounter]
 	inc a
 	ld b, a

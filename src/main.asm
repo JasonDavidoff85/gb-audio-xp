@@ -51,13 +51,13 @@ wCh1TileIndex::     	ds 1    ; Tile index for channel 1 display
 wCh2TileIndex::     	ds 1    ; Tile index for channel 2 display
 wCh3TileIndex:: 		ds 1	; Tile index for channel 3 display
 wCh4TileIndex:: 		ds 1	; Tile index for channel 4 display
-wCh1ScrollThreshold:: 	ds 1  ; Scroll frames-per-step for channel 1
-wCh2ScrollThreshold:: 	ds 1  ; Scroll frames-per-step for channel 2
+wCh1ScrollThreshold:: 	ds 1    ; Scroll frames-per-step for channel 1
+wCh2ScrollThreshold:: 	ds 1    ; Scroll frames-per-step for channel 2
 wCh1ScrollCounter:: 	ds 1    ; Scroll counter for channel 1
 wCh2ScrollCounter:: 	ds 1    ; Scroll counter for channel 2
 wZoomPhase::        	ds 1    ; CH3 zoom pulse phase (advances each frame)
 wVBlankFunc::       	ds 2    ; Pointer to routine called each VBlank
-wFillTilemapPending::	ds 1  ; Non-zero triggers a full tilemap fill next VBlank
+wFillTilemapPending::	ds 1    ; Non-zero triggers a full tilemap fill next VBlank
 wRandomSeed::       	ds 1    ; State byte for the Rand8 pseudo-random generator
 wCh1SquareCounter::		ds 1    ; Calls to IncCh1Squares since the last actual move
 wCh1SquareDecCounter::	ds 1    ; Calls to DecCh1Squares since the last actual move
@@ -145,9 +145,9 @@ GetChannelVolumeReg::
 	ld c, a
 	sla c                   ; multiply by 2 (each entry is 2 bytes)
 	add hl, bc              ; hl points to correct entry
-	ld a, [hli]             ; load low byte
+	ld a, [hli]
 	ld e, a
-	ld a, [hl]              ; load high byte
+	ld a, [hl]
 	ld d, a                 ; de now contains the register address
 	pop hl
 	pop bc
@@ -177,9 +177,9 @@ GetChannelTriggerReg::
 	ld c, a
 	sla c                   ; multiply by 2 (each entry is 2 bytes)
 	add hl, bc              ; hl points to correct entry
-	ld a, [hli]             ; load low byte
+	ld a, [hli]
 	ld e, a
-	ld a, [hl]              ; load high byte
+	ld a, [hl]
 	ld d, a                 ; de now contains the register address
 	pop hl
 	pop bc
@@ -196,9 +196,9 @@ GetChannelPeriodLowReg::
 	ld c, a
 	sla c                   ; multiply by 2 (each entry is 2 bytes)
 	add hl, bc              ; hl points to correct entry
-	ld a, [hli]             ; load low byte
+	ld a, [hli]
 	ld e, a
-	ld a, [hl]              ; load high byte
+	ld a, [hl]
 	ld d, a                 ; de now contains the register address
 	pop hl
 	pop bc
@@ -378,22 +378,22 @@ SECTION "Game Data", ROM0
 
 ; Channel volume register addresses
 ChannelVolumeRegs:
-    dw rNR12    ; Channel 1
-    dw rNR22    ; Channel 2
-	dw rNR32    ; Channel 3 (special case)
-    dw rNR42    ; Channel 4 (Channel 3 uses different volume control)
+    dw rNR12
+    dw rNR22
+	dw rNR32
+    dw rNR42
 
 ; Channel period low register addresses
 ChannelPeriodLowRegs:
-    dw rNR13    ; Channel 1
-    dw rNR23    ; Channel 2
-	dw rNR33    ; Channel 3 (special case)
-    dw rNR43    ; Channel 4 
+    dw rNR13
+    dw rNR23
+	dw rNR33
+    dw rNR43
 
 ; Channel trigger register addresses
 ChannelTriggerRegs:
-    dw rNR14    ; Channel 1
-    dw rNR24    ; Channel 2
-	dw rNR34    ; Channel 3 (special case)
-    dw rNR44    ; Channel 4
+    dw rNR14
+    dw rNR24
+	dw rNR34
+    dw rNR44
 
